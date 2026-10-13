@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 from datetime import datetime
 from decimal import Decimal
@@ -19,6 +19,8 @@ class OrderCreate(BaseModel):
 
 
 class OrderDetailResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     product_id: int
     product_sku: str
@@ -29,11 +31,10 @@ class OrderDetailResponse(BaseModel):
     discount_percentage: Decimal
     line_subtotal: Decimal
 
-    class Config:
-        from_attributes = True
-
 
 class OrderResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     order_code: str
     customer_id: int
@@ -50,5 +51,3 @@ class OrderResponse(BaseModel):
     updated_at: datetime
     items: List[OrderDetailResponse] = []
 
-    class Config:
-        from_attributes = True

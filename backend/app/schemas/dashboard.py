@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 from decimal import Decimal
 from datetime import datetime
@@ -52,6 +52,8 @@ class DashboardSummaryResponse(BaseModel):
 
 
 class InsightResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     title: str
     description: str
@@ -62,5 +64,3 @@ class InsightResponse(BaseModel):
     severity: InsightSeverityEnum
     created_at: datetime
 
-    class Config:
-        from_attributes = True

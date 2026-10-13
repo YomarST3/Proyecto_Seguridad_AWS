@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from typing import Optional
 from datetime import datetime
 from decimal import Decimal
@@ -20,14 +20,13 @@ class EmployeeCreate(EmployeeBase):
 
 
 class EmployeeResponse(EmployeeBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     company_id: int
     user_id: Optional[int]
     is_active: bool
     hire_date: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class EmployeePerformanceResponse(EmployeeResponse):
@@ -35,3 +34,4 @@ class EmployeePerformanceResponse(EmployeeResponse):
     total_sales_amount: Decimal = Decimal("0.00")
     total_commission_earned: Decimal = Decimal("0.00")
     target_fulfillment_pct: Decimal = Decimal("0.00")
+

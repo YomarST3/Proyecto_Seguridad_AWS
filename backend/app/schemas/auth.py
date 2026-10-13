@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 from typing import Optional
 
 
@@ -18,6 +18,8 @@ class TokenResponse(BaseModel):
 
 
 class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     email: str
     full_name: str
@@ -25,5 +27,3 @@ class UserResponse(BaseModel):
     company_id: int
     is_active: bool
 
-    class Config:
-        from_attributes = True

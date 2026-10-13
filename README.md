@@ -367,15 +367,34 @@ docker push <ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/salesia-backend:latest
 
 ## 💻 Instalación y Ejecución Local
 
-Para ejecutar el proyecto en su máquina de desarrollo local:
+### ⚡ Modo Rápido (1-Clic para Todo el Proyecto)
 
-### Requisitos Previos
+Hemos creado scripts automatizados que comprueban la base de datos, inicializan el entorno virtual y arrancan tanto el Backend como el Frontend simultáneamente:
+
+| Script / Comando | Descripción |
+| :--- | :--- |
+| **`iniciar_proyecto.bat`** | **Lanzador Maestro:** Inicia PostgreSQL, levanta el Backend (8000), el Frontend (5173) y abre el navegador automáticamente en `http://localhost:5173`. Doble clic en Windows o ejecutar en terminal. |
+| **`.\iniciar_proyecto.ps1`** | Versión para **PowerShell** con comprobación de estado de salud y logs formateados. |
+| **`iniciar_backend.bat`** | Inicia exclusivamente el servidor Backend FastAPI en puerto `8000`. |
+| **`iniciar_frontend.bat`** | Inicia exclusivamente el servidor Frontend React/Vite en puerto `5173`. |
+| **`detener_servicios.bat`** | Detiene y libera limpiamente los puertos `8000`, `5173` y `5433`. |
+| **`npm run dev`** | Ejecuta el lanzador maestro desde la raíz del proyecto. |
+
+---
+
+### 🛠️ Modo Manual Paso a Paso
+
+#### Requisitos Previos
 * Python 3.11+
 * Node.js 18+ y npm
-* PostgreSQL 14+ (o instancia remota en Supabase)
+* PostgreSQL 18 (en puerto `5433` o remoto en Supabase)
 
-### 1. Configuración del Backend
+#### 1. Iniciar PostgreSQL Local (si aplica)
+```bash
+"C:\Program Files\PostgreSQL\18\bin\postgres.exe" -D "%USERPROFILE%\pg_salesia_data" -p 5433
+```
 
+#### 2. Configuración y Ejecución del Backend
 ```bash
 # Acceder al directorio backend
 cd backend
@@ -392,22 +411,16 @@ source venv/bin/activate
 # Instalar dependencias
 pip install -r requirements.txt
 
-# Configurar variables de entorno (crear archivo .env)
-# Ejemplo:
-# DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5433/salesia_db
-# SUPABASE_JWT_SECRET=super-secret-supabase-jwt-key-for-local-dev-fallback-32chars
-
-# Poblar tablas iniciales y datos de prueba
+# Poblar base de datos inicial (Seed Data)
 python seed_data.py
 
 # Iniciar servidor de desarrollo FastAPI
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
-La documentación interactiva de Swagger UI estará disponible en:
+Documentación interactiva disponible en:
 👉 `http://127.0.0.1:8000/api/v1/docs`
 
-### 2. Configuración del Frontend
-
+#### 3. Configuración y Ejecución del Frontend
 ```bash
 # Acceder al directorio frontend
 cd frontend
@@ -416,10 +429,11 @@ cd frontend
 npm install
 
 # Iniciar servidor de desarrollo Vite
-npm run dev
+npm run dev -- --host 127.0.0.1 --port 5173
 ```
-La aplicación web se ejecutará en:
+Aplicación web disponible en:
 👉 `http://127.0.0.1:5173`
+
 
 ---
 

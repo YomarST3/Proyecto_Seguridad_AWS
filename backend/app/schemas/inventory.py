@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 from datetime import datetime
 from app.models.entities import InventoryMovementTypeEnum
@@ -13,6 +13,8 @@ class InventoryMovementCreate(BaseModel):
 
 
 class InventoryMovementResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     inventory_id: int
     product_id: int
@@ -27,11 +29,10 @@ class InventoryMovementResponse(BaseModel):
     user_name: Optional[str]
     created_at: datetime
 
-    class Config:
-        from_attributes = True
-
 
 class InventoryItemResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     product_id: int
     sku: str
@@ -43,3 +44,4 @@ class InventoryItemResponse(BaseModel):
     min_stock_alert: int
     is_low_stock: bool
     updated_at: datetime
+

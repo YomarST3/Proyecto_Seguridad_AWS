@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 from datetime import datetime
 from decimal import Decimal
@@ -23,6 +23,8 @@ class SaleCreate(BaseModel):
 
 
 class SaleDetailResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     product_id: int
     product_sku: str
@@ -35,11 +37,10 @@ class SaleDetailResponse(BaseModel):
     line_subtotal: Decimal
     line_total: Decimal
 
-    class Config:
-        from_attributes = True
-
 
 class SaleResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     sale_code: str
     customer_id: int
@@ -58,5 +59,3 @@ class SaleResponse(BaseModel):
     created_at: datetime
     items: List[SaleDetailResponse] = []
 
-    class Config:
-        from_attributes = True

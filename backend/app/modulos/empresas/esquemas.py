@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from typing import Optional
 from datetime import datetime
 from decimal import Decimal
@@ -28,10 +28,10 @@ class EmpresaActualizar(BaseModel):
 
 
 class EmpresaRespuesta(EmpresaBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     activo: bool
     creado_en: datetime
     actualizado_en: datetime
 
-    class Config:
-        from_attributes = True

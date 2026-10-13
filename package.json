@@ -1,0 +1,26 @@
+{
+  "name": "salesia-enterprise-workspace",
+  "version": "1.0.0",
+  "description": "SalesIA Enterprise - Plataforma Web Empresarial y Motor Analítico en AWS",
+  "scripts": {
+    "dev": "iniciar_proyecto.bat",
+    "dev:ps1": "powershell -ExecutionPolicy Bypass -File ./iniciar_proyecto.ps1",
+    "backend": "iniciar_backend.bat",
+    "frontend": "iniciar_frontend.bat",
+    "stop": "detener_servicios.bat",
+    "test": "cd backend && venv\\Scripts\\pytest tests -v",
+    "frontend:build": "cd frontend && npm run build",
+    "frontend:lint": "cd frontend && npm run lint"
+  },
+  "keywords": [
+    "fastapi",
+    "react",
+    "aws",
+    "supabase",
+    "postgresql",
+    "rbac",
+    "analytics"
+  ],
+  "author": "SalesIA Team",
+  "license": "MIT"
+}

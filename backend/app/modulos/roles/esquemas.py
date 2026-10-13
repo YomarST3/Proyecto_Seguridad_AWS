@@ -1,17 +1,16 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 from datetime import datetime
 
 
 class PermisoRespuesta(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     codigo: str
     modulo: str
     nombre: str
     descripcion: Optional[str] = None
-
-    class Config:
-        from_attributes = True
 
 
 class RolBase(BaseModel):
@@ -25,6 +24,8 @@ class RolCrear(RolBase):
 
 
 class RolRespuesta(RolBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     empresa_id: int
     es_sistema: bool
@@ -32,8 +33,6 @@ class RolRespuesta(RolBase):
     creado_en: datetime
     permisos: List[PermisoRespuesta] = []
 
-    class Config:
-        from_attributes = True
 
 
 class AsignarRolesEsquema(BaseModel):

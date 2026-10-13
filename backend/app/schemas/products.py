@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 from datetime import datetime
 from decimal import Decimal
@@ -14,12 +14,11 @@ class CategoryCreate(CategoryBase):
 
 
 class CategoryResponse(CategoryBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     company_id: int
     is_active: bool
-
-    class Config:
-        from_attributes = True
 
 
 class ProductBase(BaseModel):
@@ -51,6 +50,8 @@ class ProductUpdate(BaseModel):
 
 
 class ProductResponse(ProductBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     company_id: int
     category_name: Optional[str] = None
@@ -63,5 +64,3 @@ class ProductResponse(ProductBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True

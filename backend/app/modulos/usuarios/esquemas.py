@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from typing import List, Optional
 from datetime import datetime
 from uuid import UUID
@@ -24,6 +24,8 @@ class UsuarioActualizar(BaseModel):
 
 
 class UsuarioRespuesta(UsuarioBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     empresa_id: int
     activo: bool
@@ -32,8 +34,6 @@ class UsuarioRespuesta(UsuarioBase):
     actualizado_en: datetime
     roles: List[str] = []
 
-    class Config:
-        from_attributes = True
 
 
 class UsuarioPerfilRespuesta(UsuarioRespuesta):

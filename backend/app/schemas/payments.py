@@ -1,17 +1,16 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 from datetime import datetime
 from decimal import Decimal
 
 
 class PaymentMethodResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
     requires_reference: bool
     is_active: bool
-
-    class Config:
-        from_attributes = True
 
 
 class PaymentCreate(BaseModel):
@@ -23,6 +22,8 @@ class PaymentCreate(BaseModel):
 
 
 class PaymentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     sale_id: int
     sale_code: str
@@ -33,5 +34,3 @@ class PaymentResponse(BaseModel):
     payment_date: datetime
     notes: Optional[str]
 
-    class Config:
-        from_attributes = True
