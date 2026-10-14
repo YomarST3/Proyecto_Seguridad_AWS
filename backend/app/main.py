@@ -22,16 +22,28 @@ import os
 
 # CORS: solo orígenes exactos autorizados (localhost + FRONTEND_URL de Cloudflare Pages)
 cors_origins = list(settings.BACKEND_CORS_ORIGINS)
-frontend_url = os.getenv("FRONTEND_URL")
-if frontend_url and frontend_url not in cors_origins:
-    cors_origins.append(frontend_url)
+frontend_url = os.getenv("FRONTEND_URL", "https://salesia-enterprise.pages.dev")
+
+for url in [
+    frontend_url,
+    frontend_url.rstrip("/"),
+    f"{frontend_url.rstrip('/')}/",
+    "https://salesia-enterprise.pages.dev",
+    "https://salesia-enterprise.pages.dev/"
+]:
+    if url and url not in cors_origins:
+        cors_origins.append(url)
+
+print(f"INFO: CORS orígenes exactos autorizados: {cors_origins}")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=600,
 )
 
 # Inclusión de routers por dominio

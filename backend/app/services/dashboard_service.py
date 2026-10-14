@@ -80,7 +80,7 @@ class DashboardService:
                 sale_code=s.sale_code,
                 customer_name=s.customer.full_name if s.customer else "Cliente",
                 total_amount=s.total_amount,
-                payment_status=s.payment_status.value,
+                payment_status=s.payment_status.value if hasattr(s.payment_status, 'value') else str(s.payment_status or "PENDIENTE"),
                 created_at=s.created_at
             )
             for s in recent_sales_query
