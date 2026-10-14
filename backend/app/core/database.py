@@ -33,7 +33,7 @@ AsyncSessionLocal = async_sessionmaker(
     autoflush=False
 )
 
-Base = declarative_base()
+from app.nucleo.base_datos import BaseDeclarativa as Base
 
 
 def get_db() -> Generator[Session, None, None]:

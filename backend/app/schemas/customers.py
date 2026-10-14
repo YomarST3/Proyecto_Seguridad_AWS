@@ -1,5 +1,6 @@
+import uuid
 from pydantic import BaseModel, EmailStr, ConfigDict
-from typing import Optional, List
+from typing import Optional, List, Union, Any
 from datetime import datetime
 from decimal import Decimal
 from app.models.entities import CustomerTypeEnum
@@ -31,12 +32,11 @@ class CustomerUpdate(BaseModel):
 class CustomerResponse(CustomerBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
-    company_id: int
+    id: Any
+    company_id: Any
     is_active: bool
     created_at: datetime
     updated_at: datetime
-
 
 
 class CustomerDetailResponse(CustomerResponse):

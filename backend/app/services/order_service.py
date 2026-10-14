@@ -131,6 +131,7 @@ class OrderService:
             discount_total += line_disc
 
             detail = OrderDetail(
+                company_id=company_id,
                 order_id=order.id,
                 product_id=prod.id,
                 quantity=item.quantity,

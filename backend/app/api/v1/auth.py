@@ -1,5 +1,5 @@
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Any
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Header
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
@@ -58,7 +58,7 @@ class UsuarioEmpresarialRespuesta(BaseModel):
     id: uuid.UUID
     correo_electronico: str
     nombre_completo: str
-    empresa_id: int
+    empresa_id: uuid.UUID
     activo: bool
     roles: List[str] = []
     permisos: List[str] = []
@@ -68,7 +68,7 @@ class EstadoSesionRespuesta(BaseModel):
     estado: str  # ACTIVO, SOLICITUD_PENDIENTE, RECHAZADA, INACTIVO, NO_REGISTRADO
     mensaje: str
     usuario: Optional[UsuarioEmpresarialRespuesta] = None
-    solicitud_id: Optional[int] = None
+    solicitud_id: Optional[Any] = None
 
 
 # ==============================================================================

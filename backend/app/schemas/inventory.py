@@ -1,11 +1,11 @@
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional
+from typing import Optional, Any
 from datetime import datetime
 from app.models.entities import InventoryMovementTypeEnum
 
 
 class InventoryMovementCreate(BaseModel):
-    product_id: int
+    product_id: Any
     movement_type: InventoryMovementTypeEnum
     quantity: int = Field(gt=0, description="Cantidad positiva a mover")
     reason: str
@@ -15,9 +15,9 @@ class InventoryMovementCreate(BaseModel):
 class InventoryMovementResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
-    inventory_id: int
-    product_id: int
+    id: Any
+    inventory_id: Any
+    product_id: Any
     product_name: str
     product_sku: str
     movement_type: InventoryMovementTypeEnum
@@ -33,8 +33,8 @@ class InventoryMovementResponse(BaseModel):
 class InventoryItemResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
-    product_id: int
+    id: Any
+    product_id: Any
     sku: str
     product_name: str
     category_name: str

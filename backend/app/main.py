@@ -18,10 +18,18 @@ app = FastAPI(
     redoc_url=f"{settings.API_V1_STR}/redoc"
 )
 
-# Configuración de CORS
+import os
+
+# Configuración de CORS con soporte para frontend local, Cloudflare Pages y túnel ngrok
+cors_origins = list(settings.BACKEND_CORS_ORIGINS)
+frontend_url = os.getenv("FRONTEND_URL")
+if frontend_url and frontend_url not in cors_origins:
+    cors_origins.append(frontend_url)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_origins=cors_origins,
+    allow_origin_regex=r"^https://.*\.pages\.dev$|^https://.*\.ngrok-free\.app$|^https://.*\.ngrok\.app$|^https://.*\.ngrok\.io$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -55,4 +63,12 @@ def root():
 
 @app.get(f"{settings.API_V1_STR}/health")
 def health_check():
-    return {"status": "healthy", "database": "connected"}
+    from app.core.database import SessionLocal
+    try:
+        db = SessionLocal()
+        db.execute(__import__("sqlalchemy").text("SELECT 1"))
+        db.close()
+        return {"status": "healthy", "database": "connected"}
+    except Exception as e:
+        return {"status": "unhealthy", "database": "disconnected", "error": str(e)}
+

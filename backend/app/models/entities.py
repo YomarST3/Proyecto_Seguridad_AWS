@@ -1,16 +1,21 @@
-from datetime import datetime
-from decimal import Decimal
 import enum
+import uuid
+from datetime import datetime, date
+from decimal import Decimal
 from typing import Optional, List
+
 from sqlalchemy import (
-    Column, Integer, String, Boolean, Numeric, DateTime, ForeignKey, 
-    Text, Enum as SQLEnum, Index, UniqueConstraint
+    Column, Integer, String, Boolean, Numeric, DateTime, Date, ForeignKey, 
+    Text
 )
-from sqlalchemy.orm import relationship
-from app.core.database import Base
+from sqlalchemy.dialects.postgresql import UUID, JSONB, INET
+from sqlalchemy.orm import relationship, synonym
+from app.nucleo.base_datos import BaseDeclarativa as Base
 
 
-# --- ENUMS DEL SISTEMA ---
+# ==============================================================================
+# ENUMS DEL SISTEMA (COMPATIBILIDAD CON LÓGICA DE NEGOCIO Y ESQUEMAS)
+# ==============================================================================
 
 class UserRoleEnum(str, enum.Enum):
     ADMIN = "ADMIN"
@@ -26,33 +31,50 @@ class CustomerTypeEnum(str, enum.Enum):
 
 
 class OrderStatusEnum(str, enum.Enum):
-    DRAFT = "DRAFT"
-    PENDING = "PENDING"
-    CONFIRMED = "CONFIRMED"
-    CANCELLED = "CANCELLED"
-    FULFILLED = "FULFILLED"
+    DRAFT = "BORRADOR"
+    PENDING = "PENDIENTE"
+    CONFIRMED = "CONFIRMADO"
+    CANCELLED = "CANCELADO"
+    FULFILLED = "ATENDIDO"
+    BORRADOR = "BORRADOR"
+    PENDIENTE = "PENDIENTE"
+    CONFIRMADO = "CONFIRMADO"
+    CANCELADO = "CANCELADO"
+    ATENDIDO = "ATENDIDO"
 
 
 class SaleStatusEnum(str, enum.Enum):
-    CONFIRMED = "CONFIRMED"
-    ANNULLED = "ANNULLED"
-    PARTIALLY_REFUNDED = "PARTIALLY_REFUNDED"
-    REFUNDED = "REFUNDED"
+    CONFIRMED = "CONFIRMADA"
+    ANNULLED = "ANULADA"
+    PARTIALLY_REFUNDED = "DEVUELTA_PARCIAL"
+    REFUNDED = "DEVUELTA"
+    CONFIRMADA = "CONFIRMADA"
+    ANULADA = "ANULADA"
+    DEVUELTA = "DEVUELTA"
 
 
 class PaymentStatusEnum(str, enum.Enum):
-    PENDING = "PENDING"
-    PARTIAL = "PARTIAL"
-    PAID = "PAID"
-    REFUNDED = "REFUNDED"
+    PENDING = "PENDIENTE"
+    PARTIAL = "PARCIAL"
+    PAID = "PAGADA"
+    REFUNDED = "REEMBOLSADA"
+    PENDIENTE = "PENDIENTE"
+    PARCIAL_ES = "PARCIAL"
+    PAGADA = "PAGADA"
+    REEMBOLSADA = "REEMBOLSADA"
 
 
 class InventoryMovementTypeEnum(str, enum.Enum):
-    ENTRY = "ENTRY"          # Entrada por compra/producción
-    EXIT = "EXIT"            # Salida por venta directa o entrega
-    RESERVE = "RESERVE"      # Reserva por pedido confirmado
-    RELEASE = "RELEASE"      # Liberación por cancelación de pedido
-    ADJUSTMENT = "ADJUSTMENT"# Ajuste por merma, conteo físico o corrección
+    ENTRY = "ENTRADA"
+    EXIT = "SALIDA"
+    RESERVE = "RESERVA"
+    RELEASE = "LIBERACION"
+    ADJUSTMENT = "AJUSTE"
+    ENTRADA = "ENTRADA"
+    SALIDA = "SALIDA"
+    RESERVA = "RESERVA"
+    LIBERACION = "LIBERACION"
+    AJUSTE = "AJUSTE"
 
 
 class VariableTypeEnum(str, enum.Enum):
@@ -69,453 +91,780 @@ class InsightSeverityEnum(str, enum.Enum):
     CRITICAL = "CRITICAL"
 
 
-# --- 1. ADMINISTRACIÓN & MULTI-TENANT ---
+# ==============================================================================
+# 1. ADMINISTRACIÓN, EMPRESAS Y SEGURIDAD MULTI-TENANT
+# ==============================================================================
 
-class Company(Base):
-    __tablename__ = "companies"
-
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(200), nullable=False)
-    tax_id = Column(String(50), nullable=False, unique=True, index=True) # RUC / CIF / NIF
-    address = Column(String(300), nullable=True)
-    phone = Column(String(50), nullable=True)
-    email = Column(String(100), nullable=True)
-    currency = Column(String(10), default="USD", nullable=False)
-    tax_rate = Column(Numeric(5, 4), default=Decimal("0.18"), nullable=False) # ej. 18% IGV / IVA
-    is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
-    users = relationship("User", back_populates="company")
-    customers = relationship("Customer", back_populates="company")
-    categories = relationship("Category", back_populates="company")
-    products = relationship("Product", back_populates="company")
-    employees = relationship("Employee", back_populates="company")
-    orders = relationship("Order", back_populates="company")
-    sales = relationship("Sale", back_populates="company")
+from app.modulos.empresas.modelos import Empresa
+from app.modulos.roles.modelos import Rol, Permiso, RolPermiso, UsuarioRol
+from app.modulos.usuarios.modelos import Usuario
+from app.modulos.solicitudes.modelos import SolicitudAcceso
 
 
-class Role(Base):
-    __tablename__ = "roles"
+# ==============================================================================
+# 2. CLIENTES & CRM
+# ==============================================================================
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(50), unique=True, nullable=False)
-    description = Column(String(255), nullable=True)
-    permissions = Column(Text, nullable=True) # JSON serializado de permisos
+class Cliente(Base):
+    __tablename__ = "clientes"
+    __table_args__ = {'extend_existing': True}
 
-    users = relationship("User", back_populates="role")
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    empresa_id = Column(UUID(as_uuid=True), ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False, index=True)
+    tipo_cliente = Column(String(20), default="NATURAL", nullable=False) # NATURAL / JURIDICA
+    tipo_documento = Column(String(25), nullable=True) # DNI, RUC, etc.
+    numero_documento = Column(String(30), nullable=True, index=True)
+    nombre_razon_social = Column(String(200), nullable=False, index=True)
+    correo = Column(String(255), nullable=True)
+    telefono = Column(String(30), nullable=True)
+    direccion = Column(Text, nullable=True)
+    activo = Column(Boolean, default=True, nullable=False)
+    creado_en = Column(DateTime, default=datetime.utcnow, nullable=False)
+    actualizado_en = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
+    empresa = relationship("Empresa", back_populates="clientes")
+    ventas = relationship("Venta", back_populates="cliente")
+    pedidos = relationship("Pedido", back_populates="cliente")
 
-class User(Base):
-    __tablename__ = "users"
-
-    id = Column(Integer, primary_key=True, index=True)
-    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
-    role_id = Column(Integer, ForeignKey("roles.id"), nullable=False, index=True)
-    email = Column(String(120), nullable=False, unique=True, index=True)
-    hashed_password = Column(String(255), nullable=False)
-    full_name = Column(String(150), nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    last_login = Column(DateTime, nullable=True)
-
-    company = relationship("Company", back_populates="users")
-    role = relationship("Role", back_populates="users")
-    employee = relationship("Employee", back_populates="user", uselist=False)
-    audit_logs = relationship("AuditLog", back_populates="user")
-
-
-class AuditLog(Base):
-    __tablename__ = "audit_logs"
-
-    id = Column(Integer, primary_key=True, index=True)
-    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
-    action = Column(String(100), nullable=False) # e.g. "SALE_ANNULLED", "STOCK_ADJUSTED"
-    entity_affected = Column(String(100), nullable=False) # e.g. "sales", "inventory"
-    entity_id = Column(Integer, nullable=True)
-    details = Column(Text, nullable=True) # JSON con payload o snapshot previo
-    ip_address = Column(String(50), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
-
-    user = relationship("User", back_populates="audit_logs")
+    # Sinónimos
+    company_id = synonym('empresa_id')
+    name = synonym('nombre_razon_social')
+    full_name = synonym('nombre_razon_social')
+    customer_type = synonym('tipo_cliente')
+    document_type = synonym('tipo_documento')
+    doc_type = synonym('tipo_documento')
+    document_number = synonym('numero_documento')
+    doc_number = synonym('numero_documento')
+    email = synonym('correo')
+    phone = synonym('telefono')
+    address = synonym('direccion')
+    is_active = synonym('activo')
+    created_at = synonym('creado_en')
+    updated_at = synonym('actualizado_en')
 
 
-# --- 2. CLIENTES ---
+# ==============================================================================
+# 3. CATÁLOGO, PRODUCTOS & INVENTARIO
+# ==============================================================================
 
-class Customer(Base):
-    __tablename__ = "customers"
+class Categoria(Base):
+    __tablename__ = "categorias"
+    __table_args__ = {'extend_existing': True}
 
-    id = Column(Integer, primary_key=True, index=True)
-    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
-    customer_type = Column(SQLEnum(CustomerTypeEnum), default=CustomerTypeEnum.NATURAL, nullable=False)
-    full_name = Column(String(200), nullable=False, index=True)
-    doc_type = Column(String(20), default="DNI", nullable=False) # DNI, RUC, PASSPORT
-    doc_number = Column(String(50), nullable=False, index=True)
-    email = Column(String(120), nullable=True)
-    phone = Column(String(50), nullable=True)
-    address = Column(String(300), nullable=True)
-    is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    empresa_id = Column(UUID(as_uuid=True), ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False, index=True)
+    nombre = Column(String(100), nullable=False)
+    descripcion = Column(Text, nullable=True)
+    activo = Column(Boolean, default=True, nullable=False)
+    creado_en = Column(DateTime, default=datetime.utcnow, nullable=False)
+    actualizado_en = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
-    __table_args__ = (
-        UniqueConstraint("company_id", "doc_number", name="uq_customer_doc_per_company"),
-    )
+    empresa = relationship("Empresa", back_populates="categorias")
+    productos = relationship("Producto", back_populates="categoria")
 
-    company = relationship("Company", back_populates="customers")
-    orders = relationship("Order", back_populates="customer")
-    sales = relationship("Sale", back_populates="customer")
-
-
-# --- 3. CATEGORÍAS & PRODUCTOS ---
-
-class Category(Base):
-    __tablename__ = "categories"
-
-    id = Column(Integer, primary_key=True, index=True)
-    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
-    name = Column(String(100), nullable=False)
-    description = Column(String(255), nullable=True)
-    is_active = Column(Boolean, default=True, nullable=False)
-
-    __table_args__ = (
-        UniqueConstraint("company_id", "name", name="uq_category_name_per_company"),
-    )
-
-    company = relationship("Company", back_populates="categories")
-    products = relationship("Product", back_populates="category")
+    # Sinónimos
+    company_id = synonym('empresa_id')
+    name = synonym('nombre')
+    description = synonym('descripcion')
+    is_active = synonym('activo')
+    created_at = synonym('creado_en')
+    updated_at = synonym('actualizado_en')
 
 
-class Product(Base):
-    __tablename__ = "products"
+class Producto(Base):
+    __tablename__ = "productos"
+    __table_args__ = {'extend_existing': True}
 
-    id = Column(Integer, primary_key=True, index=True)
-    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
-    category_id = Column(Integer, ForeignKey("categories.id", ondelete="RESTRICT"), nullable=False, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    empresa_id = Column(UUID(as_uuid=True), ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False, index=True)
+    categoria_id = Column(UUID(as_uuid=True), ForeignKey("categorias.id", ondelete="RESTRICT"), nullable=False, index=True)
     sku = Column(String(100), nullable=False, index=True)
-    name = Column(String(200), nullable=False, index=True)
-    description = Column(Text, nullable=True)
-    cost_price = Column(Numeric(14, 2), nullable=False, default=Decimal("0.00")) # Costo de adquisición unitario
-    sale_price = Column(Numeric(14, 2), nullable=False, default=Decimal("0.00")) # Precio base de venta sin tax
-    tax_rate = Column(Numeric(5, 4), nullable=False, default=Decimal("0.18"))   # Impuesto aplicable (18%)
-    min_stock_alert = Column(Integer, nullable=False, default=5)
-    image_url = Column(String(500), nullable=True)
-    is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
-    __table_args__ = (
-        UniqueConstraint("company_id", "sku", name="uq_product_sku_per_company"),
-    )
-
-    company = relationship("Company", back_populates="products")
-    category = relationship("Category", back_populates="products")
-    inventory = relationship("Inventory", back_populates="product", uselist=False)
-    order_details = relationship("OrderDetail", back_populates="product")
-    sale_details = relationship("SaleDetail", back_populates="product")
-
-
-# --- 4. INVENTARIO & MOVIMIENTOS ---
-
-class Inventory(Base):
-    __tablename__ = "inventory"
-
-    id = Column(Integer, primary_key=True, index=True)
-    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
-    physical_stock = Column(Integer, nullable=False, default=0) # Existencia física total en bodega
-    reserved_stock = Column(Integer, nullable=False, default=0) # Existencia comprometida en pedidos
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
-    product = relationship("Product", back_populates="inventory")
-    movements = relationship("InventoryMovement", back_populates="inventory")
-
-
-class InventoryMovement(Base):
-    __tablename__ = "inventory_movements"
-
-    id = Column(Integer, primary_key=True, index=True)
-    inventory_id = Column(Integer, ForeignKey("inventory.id", ondelete="CASCADE"), nullable=False, index=True)
-    movement_type = Column(SQLEnum(InventoryMovementTypeEnum), nullable=False)
-    quantity = Column(Integer, nullable=False) # Cantidad que ingresa o egresa
-    previous_stock = Column(Integer, nullable=False)
-    resulting_stock = Column(Integer, nullable=False)
-    reference_doc = Column(String(100), nullable=True) # e.g. "SALE-0001", "ORD-0005", "AJUSTE-CONTEO"
-    reason = Column(String(255), nullable=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
-
-    inventory = relationship("Inventory", back_populates="movements")
-
-
-# --- 5. PERSONAL (EMPLEADOS & VENDEDORES) ---
-
-class Employee(Base):
-    __tablename__ = "employees"
-
-    id = Column(Integer, primary_key=True, index=True)
-    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, unique=True)
-    first_name = Column(String(100), nullable=False)
-    last_name = Column(String(100), nullable=False)
-    doc_number = Column(String(50), nullable=False)
-    email = Column(String(120), nullable=True)
-    phone = Column(String(50), nullable=True)
-    job_title = Column(String(100), default="Vendedor", nullable=False)
-    commission_rate = Column(Numeric(5, 4), default=Decimal("0.05"), nullable=False) # 5% comisión
-    monthly_sales_target = Column(Numeric(14, 2), default=Decimal("10000.00"), nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False)
-    hire_date = Column(DateTime, default=datetime.utcnow, nullable=False)
-
-    company = relationship("Company", back_populates="employees")
-    user = relationship("User", back_populates="employee")
-    orders = relationship("Order", back_populates="salesperson")
-    sales = relationship("Sale", back_populates="salesperson")
-
-
-# --- 6. PEDIDOS (ORDERS) ---
-
-class Order(Base):
-    __tablename__ = "orders"
-
-    id = Column(Integer, primary_key=True, index=True)
-    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
-    order_code = Column(String(50), nullable=False, index=True)
-    customer_id = Column(Integer, ForeignKey("customers.id", ondelete="RESTRICT"), nullable=False, index=True)
-    salesperson_id = Column(Integer, ForeignKey("employees.id", ondelete="RESTRICT"), nullable=False, index=True)
-    status = Column(SQLEnum(OrderStatusEnum), default=OrderStatusEnum.PENDING, nullable=False, index=True)
-    subtotal = Column(Numeric(14, 2), nullable=False, default=Decimal("0.00"))
-    tax_amount = Column(Numeric(14, 2), nullable=False, default=Decimal("0.00"))
-    discount_amount = Column(Numeric(14, 2), nullable=False, default=Decimal("0.00"))
-    total_amount = Column(Numeric(14, 2), nullable=False, default=Decimal("0.00"))
-    notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
-    __table_args__ = (
-        UniqueConstraint("company_id", "order_code", name="uq_order_code_per_company"),
-    )
-
-    company = relationship("Company", back_populates="orders")
-    customer = relationship("Customer", back_populates="orders")
-    salesperson = relationship("Employee", back_populates="orders")
-    details = relationship("OrderDetail", back_populates="order", cascade="all, delete-orphan")
-    sale = relationship("Sale", back_populates="order", uselist=False)
-
-
-class OrderDetail(Base):
-    __tablename__ = "order_details"
-
-    id = Column(Integer, primary_key=True, index=True)
-    order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True)
-    product_id = Column(Integer, ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True)
-    quantity = Column(Integer, nullable=False)
-    unit_price = Column(Numeric(14, 2), nullable=False)
-    unit_cost = Column(Numeric(14, 2), nullable=False)
-    discount_percentage = Column(Numeric(5, 4), default=Decimal("0.00"), nullable=False)
-    line_subtotal = Column(Numeric(14, 2), nullable=False)
-
-    order = relationship("Order", back_populates="details")
-    product = relationship("Product", back_populates="order_details")
-
-
-# --- 7. VENTAS (SALES) & DETALLE INMUTABLE ---
-
-class Sale(Base):
-    __tablename__ = "sales"
-
-    id = Column(Integer, primary_key=True, index=True)
-    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
-    sale_code = Column(String(50), nullable=False, index=True) # e.g. "VTA-2026-0001"
-    order_id = Column(Integer, ForeignKey("orders.id", ondelete="SET NULL"), nullable=True, unique=True)
-    customer_id = Column(Integer, ForeignKey("customers.id", ondelete="RESTRICT"), nullable=False, index=True)
-    salesperson_id = Column(Integer, ForeignKey("employees.id", ondelete="RESTRICT"), nullable=False, index=True)
-    status = Column(SQLEnum(SaleStatusEnum), default=SaleStatusEnum.CONFIRMED, nullable=False, index=True)
-    payment_status = Column(SQLEnum(PaymentStatusEnum), default=PaymentStatusEnum.PENDING, nullable=False, index=True)
-    
-    subtotal = Column(Numeric(14, 2), nullable=False, default=Decimal("0.00"))
-    tax_amount = Column(Numeric(14, 2), nullable=False, default=Decimal("0.00"))
-    discount_amount = Column(Numeric(14, 2), nullable=False, default=Decimal("0.00"))
-    total_amount = Column(Numeric(14, 2), nullable=False, default=Decimal("0.00"))
-    paid_amount = Column(Numeric(14, 2), nullable=False, default=Decimal("0.00")) # Acumulado cobrado
-    
-    notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
-    __table_args__ = (
-        UniqueConstraint("company_id", "sale_code", name="uq_sale_code_per_company"),
-    )
-
-    company = relationship("Company", back_populates="sales")
-    order = relationship("Order", back_populates="sale")
-    customer = relationship("Customer", back_populates="sales")
-    salesperson = relationship("Employee", back_populates="sales")
-    details = relationship("SaleDetail", back_populates="sale", cascade="all, delete-orphan")
-    payments = relationship("Payment", back_populates="sale", cascade="all, delete-orphan")
-
-
-class SaleDetail(Base):
-    __tablename__ = "sale_details"
-
-    id = Column(Integer, primary_key=True, index=True)
-    sale_id = Column(Integer, ForeignKey("sales.id", ondelete="CASCADE"), nullable=False, index=True)
-    product_id = Column(Integer, ForeignKey("products.id", ondelete="RESTRICT"), nullable=False, index=True)
-    quantity = Column(Integer, nullable=False)
-    unit_cost = Column(Numeric(14, 2), nullable=False)  # Snapshot inmutable de costo al vender
-    unit_price = Column(Numeric(14, 2), nullable=False) # Snapshot inmutable de precio al vender
-    tax_rate = Column(Numeric(5, 4), nullable=False)    # Snapshot inmutable de impuesto
-    discount_amount = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
-    line_subtotal = Column(Numeric(14, 2), nullable=False)
-    line_total = Column(Numeric(14, 2), nullable=False)
-
-    sale = relationship("Sale", back_populates="details")
-    product = relationship("Product", back_populates="sale_details")
-
-
-# --- 8. MÉTODOS DE PAGO & PAGOS ---
-
-class PaymentMethod(Base):
-    __tablename__ = "payment_methods"
-
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), nullable=False, unique=True) # EFECTIVO, TARJETA_DEBITO, TARJETA_CREDITO, TRANSFERENCIA
-    requires_reference = Column(Boolean, default=False, nullable=False)
-    is_active = Column(Boolean, default=True, nullable=False)
-
-    payments = relationship("Payment", back_populates="payment_method")
-
-
-class Payment(Base):
-    __tablename__ = "payments"
-
-    id = Column(Integer, primary_key=True, index=True)
-    sale_id = Column(Integer, ForeignKey("sales.id", ondelete="CASCADE"), nullable=False, index=True)
-    payment_method_id = Column(Integer, ForeignKey("payment_methods.id"), nullable=False, index=True)
-    amount = Column(Numeric(14, 2), nullable=False)
-    reference = Column(String(100), nullable=True) # Número de voucher / transacción bancaria
-    received_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    payment_date = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
-    notes = Column(String(255), nullable=True)
-
-    sale = relationship("Sale", back_populates="payments")
-    payment_method = relationship("PaymentMethod", back_populates="payments")
-
-
-# --- 9. MOTOR ESTADÍSTICO, PROBABILIDADES & INSIGHTS (SEMANA 07) ---
-
-class Dataset(Base):
-    __tablename__ = "datasets"
-
-    id = Column(Integer, primary_key=True, index=True)
-    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
-    name = Column(String(150), nullable=False)
-    description = Column(Text, nullable=True)
-    source_type = Column(String(50), nullable=False, default="SALES_OPERATIONS") # SALES, PRODUCTS, CUSTOMERS
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-
-    variables = relationship("DatasetVariable", back_populates="dataset", cascade="all, delete-orphan")
-    observations = relationship("Observation", back_populates="dataset", cascade="all, delete-orphan")
-    analyses = relationship("StatisticalAnalysis", back_populates="dataset")
-
-
-class DatasetVariable(Base):
-    __tablename__ = "dataset_variables"
-
-    id = Column(Integer, primary_key=True, index=True)
-    dataset_id = Column(Integer, ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False, index=True)
-    variable_name = Column(String(100), nullable=False)
-    variable_type = Column(SQLEnum(VariableTypeEnum), nullable=False) # Nominal, Ordinal, Discreta, Continua
-    measurement_unit = Column(String(50), nullable=True) # e.g. "USD", "unidades", "compras"
-
-    dataset = relationship("Dataset", back_populates="variables")
-
-
-class Observation(Base):
-    __tablename__ = "observations"
-
-    id = Column(Integer, primary_key=True, index=True)
-    dataset_id = Column(Integer, ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False, index=True)
-    record_index = Column(Integer, nullable=False)
-    variable_name = Column(String(100), nullable=False)
-    numeric_value = Column(Numeric(14, 4), nullable=True)
-    text_value = Column(String(255), nullable=True)
-    observed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-
-    dataset = relationship("Dataset", back_populates="observations")
-
-
-class StatisticalAnalysis(Base):
-    __tablename__ = "statistical_analyses"
-
-    id = Column(Integer, primary_key=True, index=True)
-    dataset_id = Column(Integer, ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    analysis_type = Column(String(50), nullable=False) # "MEAN", "MEDIAN", "COMPARISON", "DISCRETE_RV", "BAYES"
-    parameters = Column(Text, nullable=True) # JSON de parámetros y filtros
-    executed_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
-
-    dataset = relationship("Dataset", back_populates="analyses")
-    results = relationship("StatisticalResult", back_populates="analysis", cascade="all, delete-orphan")
-
-
-class StatisticalResult(Base):
-    __tablename__ = "statistical_results"
-
-    id = Column(Integer, primary_key=True, index=True)
-    analysis_id = Column(Integer, ForeignKey("statistical_analyses.id", ondelete="CASCADE"), nullable=False, index=True)
-    metric_name = Column(String(100), nullable=False) # e.g. "mean", "median", "relative_difference_pct"
-    metric_value = Column(Numeric(14, 4), nullable=False)
-    sample_size = Column(Integer, nullable=False)
-    explanation = Column(Text, nullable=True)
-
-    analysis = relationship("StatisticalAnalysis", back_populates="results")
-    insights = relationship("Insight", back_populates="statistical_result")
-
-
-class BayesAnalysis(Base):
-    __tablename__ = "bayes_analyses"
-
-    id = Column(Integer, primary_key=True, index=True)
-    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    event_a_description = Column(String(255), nullable=False) # ej. "Cliente recompra producto premium"
-    event_b_description = Column(String(255), nullable=False) # ej. "Cliente recibió descuento > 10%"
-    prior_prob_a = Column(Numeric(8, 6), nullable=False)     # P(A)
-    likelihood_b_given_a = Column(Numeric(8, 6), nullable=False) # P(B|A)
-    marginal_prob_b = Column(Numeric(8, 6), nullable=False)  # P(B)
-    posterior_prob_a_given_b = Column(Numeric(8, 6), nullable=False) # P(A|B)
-    calculation_steps = Column(Text, nullable=False) # Markdown / LaTeX desglosado
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    nombre = Column(String(200), nullable=False, index=True)
+    descripcion = Column(Text, nullable=True)
+    costo_actual = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    precio_venta = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    tasa_impuesto = Column(Numeric(7, 6), default=Decimal("0.180000"), nullable=False)
+    stock_minimo = Column(Integer, default=5, nullable=False)
+    imagen_url = Column(Text, nullable=True)
+    activo = Column(Boolean, default=True, nullable=False)
+    creado_en = Column(DateTime, default=datetime.utcnow, nullable=False)
+    actualizado_en = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    empresa = relationship("Empresa", back_populates="productos")
+    categoria = relationship("Categoria", back_populates="productos")
+    inventario = relationship("Inventario", back_populates="producto", uselist=False, cascade="all, delete-orphan")
+
+    category = synonym('categoria')
+
+    # Sinónimos
+    company_id = synonym('empresa_id')
+    category_id = synonym('categoria_id')
+    name = synonym('nombre')
+    description = synonym('descripcion')
+    cost_price = synonym('costo_actual')
+    sale_price = synonym('precio_venta')
+    tax_rate = synonym('tasa_impuesto')
+    min_stock = synonym('stock_minimo')
+    min_stock_alert = synonym('stock_minimo')
+    image_url = synonym('imagen_url')
+    is_active = synonym('activo')
+    created_at = synonym('creado_en')
+    updated_at = synonym('actualizado_en')
+
+    @property
+    def inventory(self):
+        return self.inventario
+
+
+class Inventario(Base):
+    __tablename__ = "inventario"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    empresa_id = Column(UUID(as_uuid=True), ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False, index=True)
+    producto_id = Column(UUID(as_uuid=True), ForeignKey("productos.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    cantidad_fisica = Column(Integer, default=0, nullable=False)
+    cantidad_reservada = Column(Integer, default=0, nullable=False)
+    actualizado_en = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    producto = relationship("Producto", back_populates="inventario")
+    movimientos = relationship("MovimientoInventario", back_populates="inventario", cascade="all, delete-orphan")
+
+    company_id = synonym('empresa_id')
+    product_id = synonym('producto_id')
+    quantity_on_hand = synonym('cantidad_fisica')
+    quantity_reserved = synonym('cantidad_reservada')
+    physical_stock = synonym('cantidad_fisica')
+    reserved_stock = synonym('cantidad_reservada')
+    updated_at = synonym('actualizado_en')
+
+    @property
+    def available_quantity(self) -> int:
+        return max(0, (self.cantidad_fisica or 0) - (self.cantidad_reservada or 0))
+
+    @property
+    def available_stock(self) -> int:
+        return self.available_quantity
+
+
+class MovimientoInventario(Base):
+    __tablename__ = "movimientos_inventario"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    inventario_id = Column(UUID(as_uuid=True), ForeignKey("inventario.id", ondelete="CASCADE"), nullable=False, index=True)
+    usuario_id = Column(UUID(as_uuid=True), ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True, index=True)
+    tipo = Column(String(50), nullable=False) # ENTRY, EXIT, RESERVE, RELEASE, ADJUSTMENT
+    cantidad = Column(Integer, nullable=False)
+    stock_anterior = Column(Integer, nullable=False)
+    stock_resultante = Column(Integer, nullable=False)
+    documento_referencia = Column(String(100), nullable=True)
+    motivo = Column(Text, nullable=True)
+    creado_en = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    inventario = relationship("Inventario", back_populates="movimientos")
+    usuario = relationship("Usuario")
+
+    inventory_id = synonym('inventario_id')
+    user_id = synonym('usuario_id')
+    movement_type = synonym('tipo')
+    quantity = synonym('cantidad')
+    previous_stock = synonym('stock_anterior')
+    new_stock = synonym('stock_resultante')
+    resulting_stock = synonym('stock_resultante')
+    reference_document = synonym('documento_referencia')
+    reference_doc = synonym('documento_referencia')
+    notes = synonym('motivo')
+    reason = synonym('motivo')
+    created_at = synonym('creado_en')
+
+
+# ==============================================================================
+# 4. PERSONAL & EMPLEADOS
+# ==============================================================================
+
+class Empleado(Base):
+    __tablename__ = "empleados"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    empresa_id = Column(UUID(as_uuid=True), ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False, index=True)
+    usuario_id = Column(UUID(as_uuid=True), ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True, unique=True, index=True)
+    nombres = Column(String(100), nullable=False)
+    apellidos = Column(String(100), nullable=False)
+    numero_documento = Column(String(30), nullable=True)
+    correo = Column(String(255), nullable=True)
+    telefono = Column(String(30), nullable=True)
+    cargo = Column(String(100), default="VENDEDOR", nullable=False)
+    tasa_comision = Column(Numeric(7, 6), default=Decimal("0.000000"), nullable=False)
+    meta_ventas_mensual = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    fecha_ingreso = Column(Date, default=date.today, nullable=True)
+    activo = Column(Boolean, default=True, nullable=False)
+    creado_en = Column(DateTime, default=datetime.utcnow, nullable=False)
+    actualizado_en = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    empresa = relationship("Empresa", back_populates="empleados")
+    usuario = relationship("Usuario", back_populates="empleado")
+    ventas = relationship("Venta", back_populates="empleado")
+    pedidos = relationship("Pedido", back_populates="empleado")
+
+    company_id = synonym('empresa_id')
+    user_id = synonym('usuario_id')
+    first_name = synonym('nombres')
+    last_name = synonym('apellidos')
+    document_number = synonym('numero_documento')
+    email = synonym('correo')
+    phone = synonym('telefono')
+    position = synonym('cargo')
+    commission_rate = synonym('tasa_comision')
+    monthly_sales_target = synonym('meta_ventas_mensual')
+    hire_date = synonym('fecha_ingreso')
+    is_active = synonym('activo')
+    created_at = synonym('creado_en')
+    updated_at = synonym('actualizado_en')
+
+    @property
+    def full_name(self) -> str:
+        return f"{self.nombres} {self.apellidos}".strip()
+
+
+# ==============================================================================
+# 5. PEDIDOS Y VENTAS
+# ==============================================================================
+
+class Pedido(Base):
+    __tablename__ = "pedidos"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    empresa_id = Column(UUID(as_uuid=True), ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False, index=True)
+    cliente_id = Column(UUID(as_uuid=True), ForeignKey("clientes.id", ondelete="RESTRICT"), nullable=False, index=True)
+    empleado_id = Column(UUID(as_uuid=True), ForeignKey("empleados.id", ondelete="RESTRICT"), nullable=True, index=True)
+    numero_pedido = Column(String(50), nullable=False, index=True)
+    estado = Column(String(50), default="PENDING", nullable=False) # DRAFT, PENDING, CONFIRMED, CANCELLED, FULFILLED
+    subtotal = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    impuesto_total = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    descuento_total = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    total = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    notas = Column(Text, nullable=True)
+    creado_en = Column(DateTime, default=datetime.utcnow, nullable=False)
+    actualizado_en = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    empresa = relationship("Empresa", back_populates="pedidos")
+    cliente = relationship("Cliente", back_populates="pedidos")
+    empleado = relationship("Empleado", back_populates="pedidos")
+    detalles = relationship("DetallePedido", back_populates="pedido", cascade="all, delete-orphan")
+    venta = relationship("Venta", back_populates="pedido", uselist=False)
+
+    company_id = synonym('empresa_id')
+    customer_id = synonym('cliente_id')
+    employee_id = synonym('empleado_id')
+    salesperson_id = synonym('empleado_id')
+    order_number = synonym('numero_pedido')
+    order_code = synonym('numero_pedido')
+    status = synonym('estado')
+    tax_total = synonym('impuesto_total')
+    tax_amount = synonym('impuesto_total')
+    discount_total = synonym('descuento_total')
+    discount_amount = synonym('descuento_total')
+    total_amount = synonym('total')
+    notes = synonym('notas')
+    created_at = synonym('creado_en')
+    updated_at = synonym('actualizado_en')
+
+    @property
+    def items(self):
+        return self.detalles
+
+    @property
+    def details(self):
+        return self.detalles
+
+    @property
+    def customer(self):
+        return self.cliente
+
+    @property
+    def employee(self):
+        return self.empleado
+
+    @property
+    def salesperson(self):
+        return self.empleado
+
+
+class DetallePedido(Base):
+    __tablename__ = "detalles_pedido"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    empresa_id = Column(UUID(as_uuid=True), nullable=True)
+    pedido_id = Column(UUID(as_uuid=True), ForeignKey("pedidos.id", ondelete="CASCADE"), nullable=False, index=True)
+    producto_id = Column(UUID(as_uuid=True), ForeignKey("productos.id", ondelete="RESTRICT"), nullable=False, index=True)
+    cantidad = Column(Integer, default=1, nullable=False)
+    precio_unitario = Column(Numeric(14, 2), nullable=False)
+    costo_unitario_historico = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    descuento = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    impuesto_total = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    subtotal = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    total = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+
+    pedido = relationship("Pedido", back_populates="detalles")
+    producto = relationship("Producto")
+
+    company_id = synonym('empresa_id')
+    order_id = synonym('pedido_id')
+    product_id = synonym('producto_id')
+    quantity = synonym('cantidad')
+    unit_price = synonym('precio_unitario')
+    unit_cost_historical = synonym('costo_unitario_historico')
+    unit_cost = synonym('costo_unitario_historico')
+    discount = synonym('descuento')
+    discount_amount = synonym('descuento')
+    tax_total = synonym('impuesto_total')
+    tax_amount = synonym('impuesto_total')
+    line_subtotal = synonym('subtotal')
+    line_total = synonym('total')
+
+    @property
+    def product(self):
+        return self.producto
+
+    @property
+    def discount_percentage(self) -> Decimal:
+        return Decimal("0.00")
+
+
+class Venta(Base):
+    __tablename__ = "ventas"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    empresa_id = Column(UUID(as_uuid=True), ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False, index=True)
+    pedido_id = Column(UUID(as_uuid=True), ForeignKey("pedidos.id", ondelete="SET NULL"), nullable=True, index=True)
+    cliente_id = Column(UUID(as_uuid=True), ForeignKey("clientes.id", ondelete="RESTRICT"), nullable=True, index=True)
+    empleado_id = Column(UUID(as_uuid=True), ForeignKey("empleados.id", ondelete="RESTRICT"), nullable=True, index=True)
+    numero_venta = Column(String(50), nullable=False, index=True)
+    estado = Column(String(50), default="CONFIRMADA", nullable=False) # CONFIRMADA, ANULADA, DEVUELTA_PARCIAL, DEVUELTA
+    estado_pago = Column(String(50), default="PENDIENTE", nullable=False) # PENDIENTE, PARCIAL, PAGADA, REEMBOLSADA
+    subtotal = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    impuesto_total = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    descuento_total = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    total = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    total_pagado = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    notas = Column(Text, nullable=True)
+    fecha_venta = Column(DateTime, default=datetime.utcnow, nullable=False)
+    actualizado_en = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    empresa = relationship("Empresa", back_populates="ventas")
+    pedido = relationship("Pedido", back_populates="venta")
+    cliente = relationship("Cliente", back_populates="ventas")
+    empleado = relationship("Empleado", back_populates="ventas")
+    detalles = relationship("DetalleVenta", back_populates="venta", cascade="all, delete-orphan")
+    pagos = relationship("Pago", back_populates="venta", cascade="all, delete-orphan")
+
+    company_id = synonym('empresa_id')
+    order_id = synonym('pedido_id')
+    customer_id = synonym('cliente_id')
+    employee_id = synonym('empleado_id')
+    salesperson_id = synonym('empleado_id')
+    sale_number = synonym('numero_venta')
+    sale_code = synonym('numero_venta')
+    status = synonym('estado')
+    payment_status = synonym('estado_pago')
+    tax_total = synonym('impuesto_total')
+    tax_amount = synonym('impuesto_total')
+    discount_total = synonym('descuento_total')
+    discount_amount = synonym('descuento_total')
+    total_amount = synonym('total')
+    paid_amount = synonym('total_pagado')
+    total_paid = synonym('total_pagado')
+    notes = synonym('notas')
+    created_at = synonym('fecha_venta')
+    updated_at = synonym('actualizado_en')
+
+    @property
+    def items(self):
+        return self.detalles
+
+    @property
+    def details(self):
+        return self.detalles
+
+    @property
+    def customer(self):
+        return self.cliente
+
+    @property
+    def employee(self):
+        return self.empleado
+
+    @property
+    def salesperson(self):
+        return self.empleado
+
+    @property
+    def payments(self):
+        return self.pagos
+
+
+class DetalleVenta(Base):
+    __tablename__ = "detalles_venta"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    empresa_id = Column(UUID(as_uuid=True), nullable=True)
+    venta_id = Column(UUID(as_uuid=True), ForeignKey("ventas.id", ondelete="CASCADE"), nullable=False, index=True)
+    producto_id = Column(UUID(as_uuid=True), ForeignKey("productos.id", ondelete="RESTRICT"), nullable=False, index=True)
+    cantidad = Column(Integer, default=1, nullable=False)
+    precio_unitario = Column(Numeric(14, 2), nullable=False)
+    costo_unitario_historico = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    tasa_impuesto = Column(Numeric(7, 6), default=Decimal("0.180000"), nullable=False)
+    descuento = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    subtotal = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    impuesto_total = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+    total = Column(Numeric(14, 2), default=Decimal("0.00"), nullable=False)
+
+    venta = relationship("Venta", back_populates="detalles")
+    producto = relationship("Producto")
+
+    company_id = synonym('empresa_id')
+    sale_id = synonym('venta_id')
+    product_id = synonym('producto_id')
+    quantity = synonym('cantidad')
+    unit_price = synonym('precio_unitario')
+    unit_cost_historical = synonym('costo_unitario_historico')
+    unit_cost = synonym('costo_unitario_historico')
+    tax_rate = synonym('tasa_impuesto')
+    tax_amount = synonym('impuesto_total')
+    discount = synonym('descuento')
+    discount_amount = synonym('descuento')
+    tax_total = synonym('impuesto_total')
+    line_subtotal = synonym('subtotal')
+    line_total = synonym('total')
+
+    @property
+    def product(self):
+        return self.producto
+
+
+# ==============================================================================
+# 6. MÉTODOS DE PAGO Y COBROS
+# ==============================================================================
+
+class MetodoPago(Base):
+    __tablename__ = "metodos_pago"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    empresa_id = Column(UUID(as_uuid=True), ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False, index=True)
+    codigo = Column(String(40), nullable=False) # CASH, CARD, TRANSFER, DIGITAL_WALLET
+    nombre = Column(String(100), nullable=False)
+    requiere_referencia = Column(Boolean, default=False, nullable=False)
+    activo = Column(Boolean, default=True, nullable=False)
+
+    company_id = synonym('empresa_id')
+    code = synonym('codigo')
+    name = synonym('nombre')
+    requires_reference = synonym('requiere_referencia')
+    is_active = synonym('activo')
+
+
+class Pago(Base):
+    __tablename__ = "pagos"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    empresa_id = Column(UUID(as_uuid=True), ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False, index=True)
+    venta_id = Column(UUID(as_uuid=True), ForeignKey("ventas.id", ondelete="CASCADE"), nullable=False, index=True)
+    metodo_pago_id = Column(UUID(as_uuid=True), ForeignKey("metodos_pago.id", ondelete="RESTRICT"), nullable=False, index=True)
+    usuario_receptor_id = Column(UUID(as_uuid=True), ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True, index=True)
+    monto = Column(Numeric(14, 2), nullable=False)
+    estado = Column(String(50), default="CONFIRMADO", nullable=False) # PENDIENTE, CONFIRMADO, RECHAZADO, REEMBOLSADO
+    referencia = Column(String(120), nullable=True)
+    notas = Column(Text, nullable=True)
+    fecha_pago = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    venta = relationship("Venta", back_populates="pagos")
+    metodo_pago = relationship("MetodoPago")
+    usuario_receptor = relationship("Usuario")
+
+    company_id = synonym('empresa_id')
+    sale_id = synonym('venta_id')
+    payment_method_id = synonym('metodo_pago_id')
+    received_by_id = synonym('usuario_receptor_id')
+    received_by_user_id = synonym('usuario_receptor_id')
+    amount = synonym('monto')
+    status = synonym('estado')
+    reference = synonym('referencia')
+    notes = synonym('notas')
+    payment_date = synonym('fecha_pago')
+
+    @property
+    def payment_method(self):
+        return self.metodo_pago
+
+    @property
+    def received_by(self):
+        return self.usuario_receptor
+
+
+# ==============================================================================
+# 7. REGISTROS DE AUDITORÍA
+# ==============================================================================
+
+class RegistroAuditoria(Base):
+    __tablename__ = "registros_auditoria"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    empresa_id = Column(UUID(as_uuid=True), ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False, index=True)
+    usuario_id = Column(UUID(as_uuid=True), ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True, index=True)
+    accion = Column(String(100), nullable=False)
+    entidad = Column(String(100), nullable=False)
+    entidad_id = Column(UUID(as_uuid=True), nullable=True)
+    detalles = Column(JSONB, nullable=True)
+    direccion_ip = Column(INET, nullable=True)
+    creado_en = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    usuario = relationship("Usuario")
+
+    company_id = synonym('empresa_id')
+    user_id = synonym('usuario_id')
+    action = synonym('accion')
+    entity_affected = synonym('entidad')
+    entity_id = synonym('entidad_id')
+    details = synonym('detalles')
+    ip_address = synonym('direccion_ip')
+    created_at = synonym('creado_en')
+
+
+# ==============================================================================
+# 8. MOTOR ESTADÍSTICO, BAYESIANO E INSIGHTS
+# ==============================================================================
+
+class ConjuntoDatos(Base):
+    __tablename__ = "conjuntos_datos"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    empresa_id = Column(UUID(as_uuid=True), ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False, index=True)
+    nombre = Column(String(150), nullable=False)
+    descripcion = Column(Text, nullable=True)
+    tipo_origen = Column(String(60), default="SALES", nullable=False)
+    filtros = Column(JSONB, nullable=True)
+    creado_en = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    variables = relationship("VariableEstadistica", back_populates="conjunto", cascade="all, delete-orphan")
+    analisis = relationship("AnalisisEstadistico", back_populates="conjunto", cascade="all, delete-orphan")
+
+    company_id = synonym('empresa_id')
+    name = synonym('nombre')
+    description = synonym('descripcion')
+    source_type = synonym('tipo_origen')
+    filter_criteria = synonym('filtros')
+    created_at = synonym('creado_en')
+
+
+class VariableEstadistica(Base):
+    __tablename__ = "variables_estadisticas"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    conjunto_id = Column(UUID(as_uuid=True), ForeignKey("conjuntos_datos.id", ondelete="CASCADE"), nullable=False, index=True)
+    nombre = Column(String(100), nullable=False)
+    tipo = Column(String(50), nullable=False) # QUALITATIVE_NOMINAL, QUANTITATIVE_CONTINUOUS, etc.
+    unidad = Column(String(60), nullable=True)
+
+    conjunto = relationship("ConjuntoDatos", back_populates="variables")
+
+    dataset_id = synonym('conjunto_id')
+    name = synonym('nombre')
+    variable_type = synonym('tipo')
+    unit = synonym('unidad')
+
+
+class Observacion(Base):
+    __tablename__ = "observaciones"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    conjunto_id = Column(UUID(as_uuid=True), ForeignKey("conjuntos_datos.id", ondelete="CASCADE"), nullable=False, index=True)
+    variable_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    indice_registro = Column(Integer, nullable=False)
+    valor_numerico = Column(Numeric(20, 6), nullable=True)
+    valor_texto = Column(Text, nullable=True)
+    observado_en = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    dataset_id = synonym('conjunto_id')
+    record_index = synonym('indice_registro')
+    numeric_value = synonym('valor_numerico')
+    text_value = synonym('valor_texto')
+    observed_at = synonym('observado_en')
+
+
+class AnalisisEstadistico(Base):
+    __tablename__ = "analisis_estadisticos"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    conjunto_id = Column(UUID(as_uuid=True), ForeignKey("conjuntos_datos.id", ondelete="CASCADE"), nullable=False, index=True)
+    usuario_id = Column(UUID(as_uuid=True), ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True, index=True)
+    tipo = Column(String(60), nullable=False) # DESCRIPTIVE, PROBABILITY, HYPOTHESIS, REGRESSION
+    parametros = Column(JSONB, nullable=True)
+    ejecutado_en = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    conjunto = relationship("ConjuntoDatos", back_populates="analisis")
+    resultados = relationship("ResultadoEstadistico", back_populates="analisis", cascade="all, delete-orphan")
+
+    dataset_id = synonym('conjunto_id')
+    user_id = synonym('usuario_id')
+    analysis_type = synonym('tipo')
+    parameters = synonym('parametros')
+    executed_at = synonym('ejecutado_en')
+    results = synonym('resultados')
+
+
+class ResultadoEstadistico(Base):
+    __tablename__ = "resultados_estadisticos"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    analisis_id = Column(UUID(as_uuid=True), ForeignKey("analisis_estadisticos.id", ondelete="CASCADE"), nullable=False, index=True)
+    nombre_metrica = Column(String(100), nullable=False)
+    valor_numerico = Column(Numeric(20, 6), nullable=True)
+    valor_texto = Column(Text, nullable=True)
+    tamano_muestra = Column(Integer, nullable=True)
+    explicacion = Column(Text, nullable=True)
+
+    analisis = relationship("AnalisisEstadistico", back_populates="resultados")
+
+    analysis_id = synonym('analisis_id')
+    metric_name = synonym('nombre_metrica')
+    numeric_value = synonym('valor_numerico')
+    text_value = synonym('valor_texto')
+    sample_size = synonym('tamano_muestra')
+    interpretation = synonym('explicacion')
+
+
+class VariableAleatoria(Base):
+    __tablename__ = "variables_aleatorias"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    conjunto_id = Column(UUID(as_uuid=True), ForeignKey("conjuntos_datos.id", ondelete="CASCADE"), nullable=False, index=True)
+    nombre = Column(String(120), nullable=False)
+    tipo = Column(String(50), nullable=False)
+    distribucion = Column(String(80), nullable=True)
+    parametros = Column(JSONB, nullable=True)
+    creado_en = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class AnalisisBayesiano(Base):
+    __tablename__ = "analisis_bayesianos"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    empresa_id = Column(UUID(as_uuid=True), ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False, index=True)
+    analisis_id = Column(UUID(as_uuid=True), ForeignKey("analisis_estadisticos.id", ondelete="SET NULL"), nullable=True, index=True)
+    usuario_id = Column(UUID(as_uuid=True), ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True, index=True)
+    evento_a = Column(Text, nullable=False)
+    evento_b = Column(Text, nullable=False)
+    probabilidad_previa = Column(Numeric(9, 8), nullable=False)
+    verosimilitud = Column(Numeric(9, 8), nullable=False)
+    probabilidad_evidencia = Column(Numeric(9, 8), nullable=False)
+    probabilidad_posterior = Column(Numeric(9, 8), nullable=False)
+    pasos_calculo = Column(Text, nullable=True)
+    creado_en = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    company_id = synonym('empresa_id')
+    analysis_id = synonym('analisis_id')
+    user_id = synonym('usuario_id')
+    prior_probability = synonym('probabilidad_previa')
+    likelihood = synonym('verosimilitud')
+    marginal_likelihood = synonym('probabilidad_evidencia')
+    posterior_probability = synonym('probabilidad_posterior')
+    calculation_steps = synonym('pasos_calculo')
+    created_at = synonym('creado_en')
 
 
 class Insight(Base):
     __tablename__ = "insights"
+    __table_args__ = {'extend_existing': True}
 
-    id = Column(Integer, primary_key=True, index=True)
-    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
-    statistical_result_id = Column(Integer, ForeignKey("statistical_results.id", ondelete="SET NULL"), nullable=True)
-    title = Column(String(200), nullable=False)
-    description = Column(Text, nullable=False)
-    metric = Column(String(100), nullable=False)
-    period = Column(String(50), nullable=False)
-    condition_rule = Column(String(255), nullable=False)
-    evidence_value = Column(String(100), nullable=False)
-    severity = Column(SQLEnum(InsightSeverityEnum), default=InsightSeverityEnum.INFO, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    empresa_id = Column(UUID(as_uuid=True), ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False, index=True)
+    resultado_id = Column(UUID(as_uuid=True), ForeignKey("resultados_estadisticos.id", ondelete="SET NULL"), nullable=True, index=True)
+    titulo = Column(String(200), nullable=False)
+    descripcion = Column(Text, nullable=False)
+    metrica = Column(String(120), nullable=True)
+    periodo = Column(String(80), nullable=True)
+    regla = Column(Text, nullable=True)
+    valor_evidencia = Column(Text, nullable=True)
+    severidad = Column(String(50), default="INFO", nullable=False) # INFO, WARNING, OPPORTUNITY, CRITICAL
+    creado_en = Column(DateTime, default=datetime.utcnow, nullable=False)
 
-    statistical_result = relationship("StatisticalResult", back_populates="insights")
+    company_id = synonym('empresa_id')
+    result_id = synonym('resultado_id')
+    title = synonym('titulo')
+    description = synonym('descripcion')
+    metric_name = synonym('metrica')
+    time_period = synonym('periodo')
+    rule_triggered = synonym('regla')
+    evidence_value = synonym('valor_evidencia')
+    severity = synonym('severidad')
+    created_at = synonym('creado_en')
 
 
-class Report(Base):
-    __tablename__ = "reports"
+class Reporte(Base):
+    __tablename__ = "reportes"
+    __table_args__ = {'extend_existing': True}
 
-    id = Column(Integer, primary_key=True, index=True)
-    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    report_type = Column(String(50), nullable=False) # "SALES", "PRODUCTS", "CUSTOMERS", "INVENTORY", "STATISTICS"
-    title = Column(String(200), nullable=False)
-    filter_parameters = Column(Text, nullable=True) # JSON
-    file_format = Column(String(10), default="PDF", nullable=False) # PDF, CSV
-    file_url = Column(String(500), nullable=True)
-    generated_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    empresa_id = Column(UUID(as_uuid=True), ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False, index=True)
+    usuario_id = Column(UUID(as_uuid=True), ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True, index=True)
+    tipo = Column(String(60), nullable=False)
+    titulo = Column(String(200), nullable=False)
+    filtros = Column(JSONB, nullable=True)
+    formato = Column(String(10), default="PDF", nullable=False)
+    archivo_url = Column(Text, nullable=True)
+    generado_en = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    company_id = synonym('empresa_id')
+    user_id = synonym('usuario_id')
+    report_type = synonym('tipo')
+    title = synonym('titulo')
+    filters = synonym('filtros')
+    file_format = synonym('formato')
+    file_url = synonym('archivo_url')
+    generated_at = synonym('generado_en')
+
+
+# ==============================================================================
+# ALIASES Y SINÓNIMOS PARA CLASES LEGACY
+# ==============================================================================
+
+Company = Empresa
+User = Usuario
+Role = Rol
+Customer = Cliente
+Category = Categoria
+Product = Producto
+Inventory = Inventario
+InventoryMovement = MovimientoInventario
+Employee = Empleado
+Order = Pedido
+OrderDetail = DetallePedido
+Sale = Venta
+SaleDetail = DetalleVenta
+PaymentMethod = MetodoPago
+Payment = Pago
+AuditLog = RegistroAuditoria
+Dataset = ConjuntoDatos
+DatasetVariable = VariableEstadistica
+Observation = Observacion
+StatisticalAnalysis = AnalisisEstadistico
+StatisticalResult = ResultadoEstadistico
+RandomVariable = VariableAleatoria
+BayesAnalysis = AnalisisBayesiano
+Report = Reporte

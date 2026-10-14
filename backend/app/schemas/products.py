@@ -1,5 +1,6 @@
+import uuid
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional
+from typing import Optional, Any
 from datetime import datetime
 from decimal import Decimal
 
@@ -16,13 +17,13 @@ class CategoryCreate(CategoryBase):
 class CategoryResponse(CategoryBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
-    company_id: int
+    id: Any
+    company_id: Any
     is_active: bool
 
 
 class ProductBase(BaseModel):
-    category_id: int
+    category_id: Any
     sku: str
     name: str
     description: Optional[str] = None
@@ -38,7 +39,7 @@ class ProductCreate(ProductBase):
 
 
 class ProductUpdate(BaseModel):
-    category_id: Optional[int] = None
+    category_id: Optional[Any] = None
     name: Optional[str] = None
     description: Optional[str] = None
     cost_price: Optional[Decimal] = None
@@ -52,8 +53,8 @@ class ProductUpdate(BaseModel):
 class ProductResponse(ProductBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
-    company_id: int
+    id: Any
+    company_id: Any
     category_name: Optional[str] = None
     unit_margin: Decimal = Decimal("0.00")
     margin_percentage: Decimal = Decimal("0.00")
@@ -64,3 +65,6 @@ class ProductResponse(ProductBase):
     created_at: datetime
     updated_at: datetime
 
+
+class ProductDetailResponse(ProductResponse):
+    pass

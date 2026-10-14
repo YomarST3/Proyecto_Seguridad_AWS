@@ -121,8 +121,8 @@ class SaleService:
             order_id=order.id if order else None,
             customer_id=customer.id,
             salesperson_id=salesperson_id,
-            status=SaleStatusEnum.CONFIRMED,
-            payment_status=PaymentStatusEnum.PENDING,
+            status=SaleStatusEnum.CONFIRMED.value,
+            payment_status=PaymentStatusEnum.PENDING.value,
             subtotal=Decimal("0.00"),
             tax_amount=Decimal("0.00"),
             discount_amount=Decimal("0.00"),
@@ -158,6 +158,7 @@ class SaleService:
 
             # Guardar detalle con snapshot inmutable de precios y costos
             detail = SaleDetail(
+                company_id=company_id,
                 sale_id=sale.id,
                 product_id=prod.id,
                 quantity=item.quantity,
@@ -196,7 +197,7 @@ class SaleService:
 
             mov = InventoryMovement(
                 inventory_id=inv.id,
-                movement_type=InventoryMovementTypeEnum.EXIT,
+                movement_type=InventoryMovementTypeEnum.EXIT.value,
                 quantity=item.quantity,
                 previous_stock=prev_phys,
                 resulting_stock=inv.physical_stock,
@@ -213,7 +214,7 @@ class SaleService:
 
         # Si el pedido existía, marcarlo como atendido
         if order:
-            order.status = OrderStatusEnum.FULFILLED
+            order.status = OrderStatusEnum.FULFILLED.value
 
         # Registrar pago inicial si fue provisto
         if data.paid_amount and data.paid_amount > Decimal("0.00") and data.payment_method_id:
@@ -223,9 +224,11 @@ class SaleService:
 
             pay_amount = min(data.paid_amount, sale.total_amount)
             payment = Payment(
+                company_id=company_id,
                 sale_id=sale.id,
                 payment_method_id=pm.id,
                 amount=pay_amount,
+                status="CONFIRMADO",
                 reference=data.payment_reference or "PAGO_DIRECTO",
                 received_by_user_id=current_user_id,
                 payment_date=datetime.utcnow(),
@@ -233,16 +236,16 @@ class SaleService:
             )
             db.add(payment)
             sale.paid_amount = pay_amount
-            sale.payment_status = PaymentStatusEnum.PAID if pay_amount >= sale.total_amount else PaymentStatusEnum.PARTIAL
+            sale.payment_status = PaymentStatusEnum.PAID.value if pay_amount >= sale.total_amount else PaymentStatusEnum.PARTIAL.value
 
         # Registrar en auditoría
         audit = AuditLog(
             company_id=company_id,
             user_id=current_user_id,
             action="SALE_CREATED",
-            entity_affected="sales",
+            entity_affected="ventas",
             entity_id=sale.id,
-            details=f"Venta {sale_code} por total {sale.total_amount}"
+            details={"descripcion": f"Venta {sale_code} por total {sale.total_amount}"}
         )
         db.add(audit)
 
@@ -296,9 +299,9 @@ class SaleService:
             company_id=company_id,
             user_id=user_id,
             action="SALE_ANNULLED",
-            entity_affected="sales",
+            entity_affected="ventas",
             entity_id=sale.id,
-            details=f"Anulación de venta {sale.sale_code}. Motivo: {reason}"
+            details={"descripcion": f"Anulación de venta {sale.sale_code}. Motivo: {reason}"}
         )
         db.add(audit)
 

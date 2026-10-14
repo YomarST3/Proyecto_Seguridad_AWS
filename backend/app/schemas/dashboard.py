@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import List, Optional
+from typing import List, Optional, Any
 from decimal import Decimal
 from datetime import datetime
 from app.models.entities import InsightSeverityEnum
@@ -15,7 +15,7 @@ class DashboardMetricCard(BaseModel):
 
 
 class RecentSaleItem(BaseModel):
-    id: int
+    id: Any
     sale_code: str
     customer_name: str
     total_amount: Decimal
@@ -24,7 +24,7 @@ class RecentSaleItem(BaseModel):
 
 
 class TopSellingProduct(BaseModel):
-    product_id: int
+    product_id: Any
     sku: str
     product_name: str
     units_sold: int
@@ -32,7 +32,7 @@ class TopSellingProduct(BaseModel):
 
 
 class LowStockAlert(BaseModel):
-    product_id: int
+    product_id: Any
     sku: str
     product_name: str
     physical_stock: int
@@ -54,7 +54,7 @@ class DashboardSummaryResponse(BaseModel):
 class InsightResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: Any
     title: str
     description: str
     metric: str

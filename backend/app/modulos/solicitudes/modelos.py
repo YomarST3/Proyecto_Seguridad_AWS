@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, String, DateTime, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.nucleo.base_datos import BaseDeclarativa
@@ -11,18 +11,20 @@ import app.modulos.usuarios.modelos  # noqa: F401
 class SolicitudAcceso(BaseDeclarativa):
     __tablename__ = "solicitudes_acceso"
 
-    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
-    # Vinculado con auth.users.id de Supabase (la FK está establecida en DDL de PostgreSQL)
-    usuario_id = Column(UUID(as_uuid=True), nullable=False, index=True)
-    empresa_id = Column(Integer, ForeignKey("empresas.id", ondelete="RESTRICT"), nullable=False, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    auth_usuario_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    estado = Column(String(20), default="PENDIENTE", nullable=False, index=True)  # PENDIENTE, APROBADA, RECHAZADA
+    creada_en = Column(DateTime, default=datetime.utcnow, nullable=False)
+    revisada_en = Column(DateTime, nullable=True)
+    revisada_por = Column(UUID(as_uuid=True), ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True)
+    observacion = Column(Text, nullable=True)
 
-    nombre_completo = Column(String(150), nullable=False)
-    correo_electronico = Column(String(120), nullable=False, index=True)
-    motivo = Column(String(255), nullable=True)
-    estado = Column(String(30), default="PENDIENTE", nullable=False, index=True)  # PENDIENTE, APROBADA, RECHAZADA
-    revisado_por_id = Column(UUID(as_uuid=True), ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True)
-    creado_en = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
-    actualizado_en = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    revisado_por_usuario = relationship("Usuario", foreign_keys=[revisada_por])
 
-    empresa = relationship("Empresa")
-    revisado_por = relationship("Usuario", foreign_keys=[revisado_por_id])
+    @property
+    def usuario_id(self) -> uuid.UUID:
+        return self.auth_usuario_id
+
+    @property
+    def motivo(self) -> str:
+        return self.observacion or ""

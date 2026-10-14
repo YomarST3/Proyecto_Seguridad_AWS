@@ -1,6 +1,9 @@
 import os
 from typing import List
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+load_dotenv()
 
 
 class Settings(BaseSettings):
@@ -24,6 +27,9 @@ class Settings(BaseSettings):
         
     @property
     def ASYNC_DATABASE_URL(self) -> str:
+        if os.getenv("DATABASE_URL"):
+            url = os.getenv("DATABASE_URL")
+            return url.replace("postgresql+psycopg2://", "postgresql+asyncpg://").replace("postgresql://", "postgresql+asyncpg://")
         pwd = f":{self.POSTGRES_PASSWORD}" if self.POSTGRES_PASSWORD else ""
         return f"postgresql+asyncpg://{self.POSTGRES_USER}{pwd}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 

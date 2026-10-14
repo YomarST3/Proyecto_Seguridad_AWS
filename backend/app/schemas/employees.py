@@ -4,6 +4,9 @@ from datetime import datetime
 from decimal import Decimal
 
 
+from typing import Optional, Any
+from uuid import UUID
+
 class EmployeeBase(BaseModel):
     first_name: str
     last_name: str
@@ -16,15 +19,15 @@ class EmployeeBase(BaseModel):
 
 
 class EmployeeCreate(EmployeeBase):
-    user_id: Optional[int] = None
+    user_id: Optional[Any] = None
 
 
 class EmployeeResponse(EmployeeBase):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
-    company_id: int
-    user_id: Optional[int]
+    id: Any
+    company_id: Any
+    user_id: Optional[Any]
     is_active: bool
     hire_date: datetime
 

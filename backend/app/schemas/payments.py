@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional
+from typing import Optional, Any
 from datetime import datetime
 from decimal import Decimal
 
@@ -7,15 +7,15 @@ from decimal import Decimal
 class PaymentMethodResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    id: Any
     name: str
     requires_reference: bool
     is_active: bool
 
 
 class PaymentCreate(BaseModel):
-    sale_id: int
-    payment_method_id: int
+    sale_id: Any
+    payment_method_id: Any
     amount: Decimal = Field(gt=Decimal("0.00"), description="Importe a cobrar")
     reference: Optional[str] = None
     notes: Optional[str] = None
@@ -24,8 +24,8 @@ class PaymentCreate(BaseModel):
 class PaymentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
-    sale_id: int
+    id: Any
+    sale_id: Any
     sale_code: str
     payment_method_name: str
     amount: Decimal
@@ -33,4 +33,3 @@ class PaymentResponse(BaseModel):
     received_by_name: Optional[str]
     payment_date: datetime
     notes: Optional[str]
-
