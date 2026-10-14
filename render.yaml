@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: salesia-backend
+    runtime: python
+    region: ohio
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.8
+      - key: PROJECT_NAME
+        value: SalesIA Enterprise
+      - key: VERSION
+        value: 1.0.0
+      - key: API_V1_STR
+        value: /api/v1
+      - key: ENVIRONMENT
+        value: production
+      - key: FRONTEND_URL
+        value: https://salesia-enterprise.pages.dev
+      - key: BACKEND_CORS_ORIGINS
+        value: '["https://salesia-enterprise.pages.dev","https://salesia-enterprise.pages.dev/"]'
+      - key: SUPABASE_URL
+        value: https://mvlsuvxwthaakfeqzkhy.supabase.co
+      - key: SUPABASE_PUBLISHABLE_KEY
+        value: sb_publishable_4LV8d2wOEio84iS0V9mnhg_XM-NZxQl
+      - key: SUPABASE_ANON_KEY
+        value: sb_publishable_4LV8d2wOEio84iS0V9mnhg_XM-NZxQl
+      - key: SUPABASE_JWT_JWKS_URL
+        value: https://mvlsuvxwthaakfeqzkhy.supabase.co/auth/v1/.well-known/jwks.json
+      - key: SUPABASE_JWT_ALGORITHM
+        value: HS256
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_DATABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
