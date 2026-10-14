@@ -15,7 +15,15 @@ class EmployeeService:
             Employee.company_id == company_id,
             Employee.is_active == True
         ).all()
-        return [EmployeeResponse.model_validate(e) for e in emps]
+        return [EmployeeResponse.model_validate({
+            **{key: getattr(e, key, None) for key in (
+                'id', 'company_id', 'user_id', 'first_name', 'last_name',
+                'email', 'phone', 'commission_rate', 'monthly_sales_target',
+                'is_active', 'hire_date'
+            )},
+            'doc_number': e.numero_documento,
+            'job_title': e.cargo,
+        }) for e in emps]
 
     @staticmethod
     def get_employee_performance(
