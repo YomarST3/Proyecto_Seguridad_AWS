@@ -1,6 +1,6 @@
 import uuid
 from typing import List
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, HTTPException
 from sqlalchemy.orm import Session
 
 from app.nucleo.base_datos import obtener_sesion_db
@@ -136,6 +136,11 @@ def asignar_roles_a_usuario(
     usuario_actual: Usuario = Depends(requerir_permiso("usuarios:administrar")),
     db: Session = Depends(obtener_sesion_db)
 ):
+    if usuario_id == usuario_actual.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Operación no permitida: Por seguridad corporativa, un usuario no puede modificar sus propios roles."
+        )
     ServicioUsuarios.asignar_roles(db, usuario_id, datos.roles_ids, usuario_actual.id)
     return {"mensaje": "Roles asignados correctamente."}
 

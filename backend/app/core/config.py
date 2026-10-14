@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     
     @property
     def DATABASE_URL(self) -> str:
+        if os.getenv("DATABASE_URL"):
+            return os.getenv("DATABASE_URL")
         pwd = f":{self.POSTGRES_PASSWORD}" if self.POSTGRES_PASSWORD else ""
         return f"postgresql+psycopg2://{self.POSTGRES_USER}{pwd}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         

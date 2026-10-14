@@ -134,6 +134,18 @@ def verificar_sesion_supabase(
         permisos = ServicioUsuarios.obtener_codigos_permisos(db, usuario.id)
         codigos_roles = [ur.rol.codigo for ur in usuario.roles_asignados if ur.rol and ur.rol.activo]
 
+        # Validar si el usuario no tiene ningún rol activo asignado
+        if not codigos_roles:
+            return EstadoSesionRespuesta(
+                estado="SIN_ROLES",
+                mensaje="Tu cuenta de usuario está activa pero aún no cuenta con ningún rol empresarial asignado.",
+                usuario=None
+            )
+
+        # Sincronización segura de correo si cambió en Supabase Auth
+        if email and email.lower().strip() != usuario.correo_electronico.lower().strip():
+            usuario.correo_electronico = email.lower().strip()
+
         # Actualizar marca de último acceso
         usuario.ultimo_acceso = datetime.utcnow()
         db.commit()

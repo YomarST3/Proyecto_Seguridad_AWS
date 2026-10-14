@@ -69,38 +69,63 @@ export const LoginPage: React.FC = () => {
     setError(null);
 
     try {
+      // 1. Autenticación oficial directa con Supabase Auth (GoTrue)
       let accessToken: string | null = null;
-
-      // 1. Intentar autenticación directa con Supabase Auth
       try {
         const { data: supaData, error: supaError } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password: password,
         });
 
-        if (!supaError && supaData?.session?.access_token) {
+        if (supaError) {
+          const msg = supaError.message.toLowerCase();
+          if (msg.includes('invalid login credentials') || msg.includes('invalid credentials')) {
+            setError('Correo electrónico o contraseña incorrectos.');
+          } else if (msg.includes('email not confirmed')) {
+            setError('Tu correo electrónico no ha sido verificado. Por favor revisa tu bandeja de entrada o spam.');
+          } else {
+            setError('Credenciales incorrectas o cuenta no autorizada.');
+          }
+          setLoading(false);
+          return;
+        }
+
+        if (supaData?.session?.access_token) {
           accessToken = supaData.session.access_token;
         }
-      } catch {
-        // En entorno de desarrollo sin Supabase cloud activo, continuamos con fallback
+      } catch (networkErr: any) {
+        // En caso de corte total de red con Supabase en desarrollo local
+        try {
+          const localLogin = await api.post('/auth/login', {
+            email: email.trim(),
+            password: password,
+          });
+          accessToken = localLogin.data.access_token;
+        } catch {
+          setError('No fue posible conectar con el servidor de autenticación de Supabase.');
+          setLoading(false);
+          return;
+        }
       }
 
-      // 2. Fallback de desarrollo local si Supabase cloud no está configurado
       if (!accessToken) {
-        const localLogin = await api.post('/auth/login', {
-          email: email.trim(),
-          password: password,
-        });
-        accessToken = localLogin.data.access_token;
+        setError('No se pudo obtener el token de acceso desde Supabase Auth.');
+        setLoading(false);
+        return;
       }
 
-      // 3. Validar el token y consultar el perfil empresarial en FastAPI
+      // 2. Validar criptográficamente el token y consultar claims empresariales en FastAPI
       const sessionRes = await api.post('/auth/sesion', { access_token: accessToken });
-      const { estado, mensaje, usuario, solicitud_id } = sessionRes.data;
+      const { estado, mensaje, usuario } = sessionRes.data;
 
       if (estado === 'SOLICITUD_PENDIENTE') {
         localStorage.setItem('salesia_pending_email', email.trim());
         navigate('/pendiente-aprobacion');
+        return;
+      }
+
+      if (estado === 'SIN_ROLES') {
+        setError('Tu cuenta está confirmada pero aún no cuenta con ningún rol empresarial autorizado. Contacta a un administrador.');
         return;
       }
 
@@ -110,7 +135,12 @@ export const LoginPage: React.FC = () => {
       }
 
       if (estado === 'INACTIVO') {
-        setError('Tu cuenta de usuario ha sido desactivada por un administrador.');
+        setError('Tu cuenta de usuario ha sido desactivada por un administrador corporativo.');
+        return;
+      }
+
+      if (estado === 'NO_REGISTRADO') {
+        setError('Tu cuenta existe en Supabase pero no tiene una solicitud ni registro en esta empresa.');
         return;
       }
 
@@ -118,7 +148,6 @@ export const LoginPage: React.FC = () => {
         // Guardar sesión y claims de roles/permisos
         localStorage.setItem('salesia_token', accessToken);
         localStorage.setItem('salesia_user', JSON.stringify({
-
           id: usuario.id,
           email: usuario.correo_electronico,
           full_name: usuario.nombre_completo,
@@ -128,23 +157,24 @@ export const LoginPage: React.FC = () => {
           company_id: usuario.empresa_id
         }));
 
-        // Redirigir según rol principal o al Dashboard general
+        // Redirección según matriz de roles autorizados (Sección 8):
         const roles = usuario.roles || [];
         if (roles.includes('ADMINISTRADOR') || roles.includes('ADMIN')) {
           navigate('/dashboard');
         } else if (roles.includes('GERENTE') || roles.includes('MANAGER')) {
           navigate('/dashboard');
-        } else if (roles.includes('ALMACEN') || roles.includes('WAREHOUSE')) {
-          navigate('/inventory');
+        } else if (roles.includes('VENDEDOR') || roles.includes('SELLER')) {
+          navigate('/customers');
         } else if (roles.includes('ANALISTA') || roles.includes('ANALYST')) {
           navigate('/analytics');
+        } else if (roles.includes('ALMACEN') || roles.includes('WAREHOUSE')) {
+          navigate('/inventory');
         } else {
           navigate('/dashboard');
         }
         return;
       }
 
-      // Si no cayó en ningún estado esperado
       setError(mensaje || 'No se pudo verificar la sesión empresarial.');
 
     } catch (err: any) {

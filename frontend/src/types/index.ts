@@ -23,6 +23,40 @@ export interface SolicitudAcceso {
   actualizado_en: string;
 }
 
+export interface UsuarioEmpresarial {
+  id: string;
+  empresa_id: number;
+  nombre_completo: string;
+  correo_electronico: string;
+  telefono?: string;
+  activo: boolean;
+  ultimo_acceso?: string;
+  creado_en: string;
+  actualizado_en: string;
+  roles: string[];
+}
+
+export interface RolEmpresarial {
+  id: number;
+  empresa_id: number;
+  codigo: string;
+  nombre: string;
+  descripcion?: string;
+  es_sistema: boolean;
+  activo: boolean;
+  creado_en: string;
+  permisos: PermisoItem[];
+}
+
+export interface PermisoItem {
+  id: number;
+  codigo: string;
+  modulo: string;
+  nombre: string;
+  descripcion?: string;
+  creado_en: string;
+}
+
 
 export interface Customer {
   id: number;

@@ -60,6 +60,15 @@ class ServicioSolicitudes:
                 return solicitud_existente
 
         try:
+            nueva_solicitud = SolicitudAcceso(
+                usuario_id=datos.usuario_id,
+                empresa_id=datos.empresa_id,
+                nombre_completo=datos.nombre_completo.strip(),
+                correo_electronico=datos.correo_electronico.lower().strip(),
+                motivo=datos.motivo,
+                estado="PENDIENTE"
+            )
+
             # En entorno local/mock, si existe auth.users y no existe el id, sincronizar para pruebas
             from sqlalchemy import text
             try:
