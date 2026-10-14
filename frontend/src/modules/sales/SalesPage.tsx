@@ -106,11 +106,10 @@ export const SalesPage: React.FC = () => {
           <span>Registrar Venta</span>
         </button>
       </div>
-
       {/* Table */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse min-w-[780px]">
             <thead>
               <tr className="bg-slate-50/70 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                 <th className="py-3 px-4">Código</th>
@@ -164,7 +163,7 @@ export const SalesPage: React.FC = () => {
                         {s.payment_status}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-right space-x-1">
+                    <td className="py-3 px-4 text-right space-x-1 whitespace-nowrap">
                       <button
                         onClick={() => setSelectedSale(s)}
                         className="p-1 text-sky-600 hover:text-sky-700 hover:bg-sky-50 rounded"
@@ -195,8 +194,8 @@ export const SalesPage: React.FC = () => {
 
       {/* Modal Detalle Inmutable de Venta */}
       {selectedSale && (
-        <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+        <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-4 sm:p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto my-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
                 <h3 className="font-bold text-slate-900 text-sm">Detalle Fiscal de Venta: {selectedSale.sale_code}</h3>
@@ -208,7 +207,7 @@ export const SalesPage: React.FC = () => {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+              <table className="w-full text-left text-xs border-collapse min-w-[400px]">
                 <thead>
                   <tr className="border-b border-slate-100 text-[10px] font-semibold text-slate-400 uppercase">
                     <th className="py-2">Ítem</th>
@@ -260,8 +259,8 @@ export const SalesPage: React.FC = () => {
 
       {/* Modal Registrar Venta */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
+        <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto my-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
               <h3 className="font-bold text-slate-900 text-sm">Registrar Nueva Venta</h3>
               <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-slate-600">
@@ -307,7 +306,7 @@ export const SalesPage: React.FC = () => {
                 <label className="block text-[11px] font-semibold text-slate-600 mb-1">Productos a Facturar</label>
                 <div className="space-y-2">
                   {items.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
+                    <div key={idx} className="flex flex-col sm:flex-row sm:items-center gap-2">
                       <select
                         value={item.product_id}
                         onChange={(e) => {
@@ -315,7 +314,7 @@ export const SalesPage: React.FC = () => {
                           updated[idx].product_id = Number(e.target.value);
                           setItems(updated);
                         }}
-                        className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs"
+                        className="w-full sm:flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs"
                       >
                         {products.map((p) => (
                           <option key={p.id} value={p.id}>
@@ -323,17 +322,20 @@ export const SalesPage: React.FC = () => {
                           </option>
                         ))}
                       </select>
-                      <input
-                        type="number"
-                        min="1"
-                        value={item.quantity}
-                        onChange={(e) => {
-                          const updated = [...items];
-                          updated[idx].quantity = parseInt(e.target.value) || 1;
-                          setItems(updated);
-                        }}
-                        className="w-20 bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-center"
-                      />
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          value={item.quantity}
+                          onChange={(e) => {
+                            const updated = [...items];
+                            updated[idx].quantity = parseInt(e.target.value) || 1;
+                            setItems(updated);
+                          }}
+                          className="w-24 bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-center"
+                        />
+                        <span className="text-[11px] text-slate-400 sm:hidden">uds.</span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -359,8 +361,8 @@ export const SalesPage: React.FC = () => {
                       onChange={(e) => setPaymentMethodId(Number(e.target.value))}
                       className="w-full bg-white border border-slate-200 rounded-lg p-1.5 text-xs"
                     >
-                      {paymentMethods.map((pm) => (
-                        <option key={pm.id} value={pm.id}>{pm.name}</option>
+                      {paymentMethods.map((m) => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
                       ))}
                     </select>
                   </div>
@@ -390,8 +392,8 @@ export const SalesPage: React.FC = () => {
 
       {/* Modal Anular Venta */}
       {isAnnulModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+        <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-4 sm:p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto my-auto">
             <h3 className="font-bold text-rose-600 text-sm flex items-center gap-2">
               <Ban className="w-4 h-4" />
               <span>Anulación Autorizada de Venta</span>

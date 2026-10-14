@@ -498,7 +498,7 @@ export const SettingsPage: React.FC = () => {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+                <table className="w-full text-left text-xs min-w-[700px]">
                   <thead className="bg-slate-50/70 border-y border-slate-200 text-slate-600 font-semibold uppercase text-[10px] tracking-wider">
                     <tr>
                       <th className="py-2.5 px-3">Colaborador / Identidad</th>
@@ -708,7 +708,7 @@ export const SettingsPage: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <button
                           onClick={() => handleRechazarSolicitud(sol.id)}
                           disabled={estaProcesando}
@@ -737,7 +737,7 @@ export const SettingsPage: React.FC = () => {
                       <label className="block text-[11px] font-bold text-slate-600 mb-1.5">
                         Roles a Autorizar (un usuario puede tener múltiples roles):
                       </label>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2">
                         {rolesDisponibles.map((r) => {
                           const estaMarcado = seleccionados.includes(r.id);
                           return (
@@ -996,8 +996,8 @@ export const SettingsPage: React.FC = () => {
       {/* MODAL PARA CAMBIO Y ASIGNACIÓN DE ROLES                             */}
       {/* ==================================================================== */}
       {usuarioEditando && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 animate-in fade-in overflow-y-auto">
+          <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto my-auto">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <ShieldAlert className="w-5 h-5 text-sky-600" />

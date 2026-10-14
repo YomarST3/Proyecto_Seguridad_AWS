@@ -79,19 +79,19 @@ export const EmployeesPage: React.FC = () => {
       {/* Selected Employee Performance Card */}
       {performance && (
         <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
             <div>
               <h3 className="font-bold text-base text-slate-900">
                 Desempeño Comercial: {performance.first_name} {performance.last_name}
               </h3>
               <p className="text-xs text-slate-500">{performance.job_title} • Meta: ${Number(performance.monthly_sales_target).toLocaleString()}</p>
             </div>
-            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span className="self-start sm:self-auto px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
               Cumplimiento: {Number(performance.target_fulfillment_pct).toFixed(1)}%
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <div className="p-3 bg-slate-50 rounded-xl text-center border border-slate-100">
               <p className="text-xs text-slate-400">Ventas Válidas</p>
               <h4 className="text-xl font-bold text-slate-900 mt-1">{performance.total_sales_count} ops.</h4>

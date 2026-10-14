@@ -93,14 +93,14 @@ export const OrdersPage: React.FC = () => {
       </div>
 
       {/* Filter by status */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-3 overflow-x-auto">
         {['', 'PENDING', 'CONFIRMED', 'FULFILLED', 'CANCELLED'].map((st) => (
           <button
             key={st}
             onClick={() => setSelectedStatus(st)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
               selectedStatus === st
-                ? 'bg-slate-900 text-white'
+                ? 'bg-slate-900 text-white shadow-xs'
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
@@ -112,7 +112,7 @@ export const OrdersPage: React.FC = () => {
       {/* Table */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse min-w-[700px]">
             <thead>
               <tr className="bg-slate-50/70 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                 <th className="py-3 px-4">Código</th>
@@ -158,7 +158,7 @@ export const OrdersPage: React.FC = () => {
                         {o.status}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-right space-x-2">
+                    <td className="py-3 px-4 text-right space-x-2 whitespace-nowrap">
                       {o.status === 'PENDING' && (
                         <>
                           <button
@@ -200,8 +200,8 @@ export const OrdersPage: React.FC = () => {
 
       {/* Modal Crear Pedido */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
+        <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto my-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
               <h3 className="font-bold text-slate-900 text-sm">Crear Pedido Comercial</h3>
               <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-slate-600">
@@ -234,7 +234,7 @@ export const OrdersPage: React.FC = () => {
                 <label className="block text-[11px] font-semibold text-slate-600 mb-1">Productos del Pedido</label>
                 <div className="space-y-2">
                   {orderItems.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
+                    <div key={idx} className="flex flex-col sm:flex-row sm:items-center gap-2">
                       <select
                         value={item.product_id}
                         onChange={(e) => {
@@ -242,7 +242,7 @@ export const OrdersPage: React.FC = () => {
                           updated[idx].product_id = Number(e.target.value);
                           setOrderItems(updated);
                         }}
-                        className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs"
+                        className="w-full sm:flex-1 bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs"
                       >
                         {products.map((p) => (
                           <option key={p.id} value={p.id}>
@@ -250,17 +250,20 @@ export const OrdersPage: React.FC = () => {
                           </option>
                         ))}
                       </select>
-                      <input
-                        type="number"
-                        min="1"
-                        value={item.quantity}
-                        onChange={(e) => {
-                          const updated = [...orderItems];
-                          updated[idx].quantity = parseInt(e.target.value) || 1;
-                          setOrderItems(updated);
-                        }}
-                        className="w-20 bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-center"
-                      />
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          value={item.quantity}
+                          onChange={(e) => {
+                            const updated = [...orderItems];
+                            updated[idx].quantity = parseInt(e.target.value) || 1;
+                            setOrderItems(updated);
+                          }}
+                          className="w-24 bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-center"
+                        />
+                        <span className="text-[11px] text-slate-400 sm:hidden">uds.</span>
+                      </div>
                     </div>
                   ))}
                 </div>

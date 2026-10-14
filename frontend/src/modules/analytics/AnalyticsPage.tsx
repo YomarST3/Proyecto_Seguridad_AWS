@@ -42,20 +42,20 @@ export const AnalyticsPage: React.FC = () => {
 
       {/* Media vs. Mediana Comparison Card */}
       {metrics && (
-        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2">
-              <Scale className="w-5 h-5 text-sky-600" />
+              <Scale className="w-5 h-5 text-sky-600 shrink-0" />
               <h3 className="font-bold text-sm text-slate-900">
                 Análisis Comparativo de Centralidad (Media vs. Mediana)
               </h3>
             </div>
-            <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
+            <span className="self-start sm:self-auto text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full whitespace-nowrap">
               Muestra: {metrics.sample_size} ventas válidas
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <div className="p-4 bg-sky-50/70 border border-sky-100 rounded-xl text-center">
               <p className="text-xs font-semibold text-slate-500">Media Aritmética (x̄)</p>
               <h4 className="text-2xl font-bold text-sky-900 mt-1">${Number(metrics.mean).toFixed(2)}</h4>
@@ -91,10 +91,10 @@ export const AnalyticsPage: React.FC = () => {
       {/* Recharts Visualizations */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Unidades vendidas por producto */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-xs min-w-0">
           <h3 className="text-sm font-bold text-slate-900 mb-1">Unidades Vendidas por Ítem de Catálogo</h3>
           <p className="text-[11px] text-slate-400 mb-4">Volumen físico despachado en operaciones válidas</p>
-          <div className="h-64 w-full">
+          <div className="h-64 w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={topProductsChartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -114,10 +114,10 @@ export const AnalyticsPage: React.FC = () => {
         </div>
 
         {/* Facturación acumulada por producto */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-xs min-w-0">
           <h3 className="text-sm font-bold text-slate-900 mb-1">Ingresos Generados por Producto ($)</h3>
           <p className="text-[11px] text-slate-400 mb-4">Distribución de ingresos por producto</p>
-          <div className="h-64 w-full">
+          <div className="h-64 w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={topProductsChartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -138,12 +138,12 @@ export const AnalyticsPage: React.FC = () => {
       </div>
 
       {/* Taxonomía de Variables Estadísticas (Semana 07) */}
-      <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
+      <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-xs">
         <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 mb-3">
-          <Layers className="w-4 h-4 text-sky-600" />
+          <Layers className="w-4 h-4 text-sky-600 shrink-0" />
           <span>Clasificación de Variables Estadísticas del Sistema (Semana 07)</span>
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 text-xs">
           <div className="p-3 rounded-lg bg-slate-50 border border-slate-100">
             <span className="text-[10px] font-bold uppercase text-sky-600 tracking-wider">Cualitativa Nominal</span>
             <h4 className="font-bold text-slate-900 mt-1">Método de Pago / Categoría</h4>

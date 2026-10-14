@@ -44,15 +44,15 @@ export const DashboardPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Page Title & Context Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">Dashboard Operativo</h1>
           <p className="text-xs text-slate-500 mt-0.5">
             Métricas comerciales en tiempo real auditadas directamente desde PostgreSQL.
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-xs text-slate-600">
-          <ShieldCheck className="w-4 h-4 text-emerald-600" />
+        <div className="inline-flex items-center gap-2 text-xs bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-xs text-slate-600 self-start sm:self-auto">
+          <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>Datos Financieros Inmutables</span>
         </div>
       </div>
@@ -135,7 +135,7 @@ export const DashboardPage: React.FC = () => {
       {/* Two Column Section: Ventas Recientes & Productos Más Vendidos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Ventas Recientes */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <ShoppingBag className="w-4 h-4 text-sky-600" />
@@ -144,8 +144,8 @@ export const DashboardPage: React.FC = () => {
             <span className="text-[11px] text-slate-400 font-medium">Últimas 5 operaciones</span>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+            <table className="w-full text-left border-collapse min-w-[420px]">
               <thead>
                 <tr className="border-b border-slate-100 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                   <th className="pb-2.5">Código</th>
@@ -181,7 +181,7 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         {/* Productos Más Vendidos */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Package className="w-4 h-4 text-cyan-600" />
@@ -192,17 +192,17 @@ export const DashboardPage: React.FC = () => {
 
           <div className="space-y-3">
             {data.top_selling_products.map((item, idx) => (
-              <div key={item.product_id} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50/70 border border-slate-100">
-                <div className="flex items-center gap-3">
-                  <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold flex items-center justify-center">
+              <div key={item.product_id} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50/70 border border-slate-100 gap-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold flex items-center justify-center shrink-0">
                     {idx + 1}
                   </span>
-                  <div>
-                    <p className="text-xs font-semibold text-slate-800">{item.product_name}</p>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-slate-800 truncate">{item.product_name}</p>
                     <p className="text-[10px] text-slate-400">SKU: {item.sku}</p>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-right shrink-0">
                   <p className="text-xs font-bold text-slate-900">{item.units_sold} uds.</p>
                   <p className="text-[10px] text-slate-500">${Number(item.total_revenue).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                 </div>

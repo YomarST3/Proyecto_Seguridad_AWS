@@ -123,7 +123,7 @@ export const RegisterPage: React.FC = () => {
       <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-sky-600/10 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-1/4 right-1/3 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none"></div>
 
-      <div className="w-full max-w-lg bg-slate-900/90 border border-slate-800 rounded-2xl shadow-2xl p-8 backdrop-blur-sm z-10">
+      <div className="w-full max-w-lg bg-slate-900/90 border border-slate-800 rounded-2xl shadow-2xl p-5 sm:p-8 backdrop-blur-sm z-10">
         {/* Brand */}
         <div className="flex flex-col items-center mb-6">
           <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-sky-600 via-cyan-500 to-sky-400 flex items-center justify-center text-white shadow-xl shadow-sky-500/20 mb-3">

@@ -85,7 +85,7 @@ export const PaymentsPage: React.FC = () => {
         </div>
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
           <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Métodos de Cobro Habilitados</p>
-          <div className="flex items-center gap-2 mt-2">
+          <div className="flex flex-wrap items-center gap-2 mt-2">
             {paymentMethods.map((m) => (
               <span key={m.id} className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
                 {m.name}
@@ -101,7 +101,7 @@ export const PaymentsPage: React.FC = () => {
           Estado de Cartera de Ventas
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse min-w-[700px]">
             <thead>
               <tr className="border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                 <th className="py-3 px-4">Código</th>
@@ -132,7 +132,7 @@ export const PaymentsPage: React.FC = () => {
                       {s.payment_status}
                     </span>
                   </td>
-                  <td className="py-3 px-4 text-right">
+                  <td className="py-3 px-4 text-right whitespace-nowrap">
                     {Number(s.pending_balance) > 0 && s.status === 'CONFIRMED' && (
                       <button
                         onClick={() => {
@@ -155,8 +155,8 @@ export const PaymentsPage: React.FC = () => {
 
       {/* Modal Registrar Cobro */}
       {isRegisterModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+        <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto my-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
               <h3 className="font-bold text-slate-900 text-sm">Registrar Cobro en Caja</h3>
               <button onClick={() => setIsRegisterModalOpen(false)} className="text-slate-400 hover:text-slate-600">

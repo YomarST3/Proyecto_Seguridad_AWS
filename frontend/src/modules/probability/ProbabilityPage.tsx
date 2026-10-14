@@ -110,7 +110,7 @@ export const ProbabilityPage: React.FC = () => {
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="block text-[10px] font-semibold text-slate-600 mb-1">P(A) [A priori]</label>
                 <input
@@ -120,7 +120,7 @@ export const ProbabilityPage: React.FC = () => {
                   max="1"
                   value={priorA}
                   onChange={(e) => setPriorA(parseFloat(e.target.value) || 0)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-mono"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-mono text-xs"
                 />
               </div>
 
@@ -133,7 +133,7 @@ export const ProbabilityPage: React.FC = () => {
                   max="1"
                   value={likelihoodBgivenA}
                   onChange={(e) => setLikelihoodBgivenA(parseFloat(e.target.value) || 0)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-mono"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-mono text-xs"
                 />
               </div>
 
@@ -146,7 +146,7 @@ export const ProbabilityPage: React.FC = () => {
                   max="1"
                   value={marginalB}
                   onChange={(e) => setMarginalB(parseFloat(e.target.value) || 0.001)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-mono"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 font-mono text-xs"
                 />
               </div>
             </div>

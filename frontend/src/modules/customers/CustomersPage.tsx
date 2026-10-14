@@ -100,7 +100,7 @@ export const CustomersPage: React.FC = () => {
       {/* Table */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse min-w-[650px]">
             <thead>
               <tr className="bg-slate-50/70 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                 <th className="py-3 px-4">Tipo</th>
@@ -163,8 +163,8 @@ export const CustomersPage: React.FC = () => {
 
       {/* Modal Ficha de Cliente (Rule Section 4) */}
       {selectedCustomerId && (
-        <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-5">
+        <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto my-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <Users className="w-5 h-5 text-sky-600" />
@@ -191,7 +191,7 @@ export const CustomersPage: React.FC = () => {
                 </div>
 
                 {/* Contact data */}
-                <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-xl text-xs text-slate-600 border border-slate-100">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 rounded-xl text-xs text-slate-600 border border-slate-100">
                   <div className="flex items-center gap-2 truncate">
                     <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     <span className="truncate">{customerDetail.email || 'No registrado'}</span>
@@ -200,7 +200,7 @@ export const CustomersPage: React.FC = () => {
                     <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     <span>{customerDetail.phone || 'No registrado'}</span>
                   </div>
-                  <div className="col-span-2 flex items-start gap-2">
+                  <div className="sm:col-span-2 flex items-start gap-2">
                     <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
                     <span>{customerDetail.address || 'Sin dirección registrada'}</span>
                   </div>
@@ -211,23 +211,23 @@ export const CustomersPage: React.FC = () => {
                   <h5 className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
                     Historial Comercial Calculado
                   </h5>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="p-3 rounded-lg bg-sky-50/70 border border-sky-100 text-center">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                    <div className="p-2 sm:p-3 rounded-lg bg-sky-50/70 border border-sky-100 text-center">
                       <ShoppingBag className="w-4 h-4 text-sky-600 mx-auto mb-1" />
-                      <p className="text-xs font-semibold text-slate-500">Compras</p>
-                      <p className="text-sm font-bold text-slate-900">{customerDetail.total_purchases_count || 0}</p>
+                      <p className="text-[11px] sm:text-xs font-semibold text-slate-500">Compras</p>
+                      <p className="text-xs sm:text-sm font-bold text-slate-900">{customerDetail.total_purchases_count || 0}</p>
                     </div>
 
-                    <div className="p-3 rounded-lg bg-emerald-50/70 border border-emerald-100 text-center">
+                    <div className="p-2 sm:p-3 rounded-lg bg-emerald-50/70 border border-emerald-100 text-center">
                       <DollarSign className="w-4 h-4 text-emerald-600 mx-auto mb-1" />
-                      <p className="text-xs font-semibold text-slate-500">Monto Total</p>
-                      <p className="text-sm font-bold text-slate-900">${Number(customerDetail.total_amount_spent || 0).toLocaleString()}</p>
+                      <p className="text-[11px] sm:text-xs font-semibold text-slate-500">Total</p>
+                      <p className="text-xs sm:text-sm font-bold text-slate-900">${Number(customerDetail.total_amount_spent || 0).toLocaleString()}</p>
                     </div>
 
-                    <div className="p-3 rounded-lg bg-indigo-50/70 border border-indigo-100 text-center">
+                    <div className="p-2 sm:p-3 rounded-lg bg-indigo-50/70 border border-indigo-100 text-center">
                       <DollarSign className="w-4 h-4 text-indigo-600 mx-auto mb-1" />
-                      <p className="text-xs font-semibold text-slate-500">Ticket Prom.</p>
-                      <p className="text-sm font-bold text-slate-900">${Number(customerDetail.average_ticket || 0).toFixed(2)}</p>
+                      <p className="text-[11px] sm:text-xs font-semibold text-slate-500">Promedio</p>
+                      <p className="text-xs sm:text-sm font-bold text-slate-900">${Number(customerDetail.average_ticket || 0).toFixed(2)}</p>
                     </div>
                   </div>
                 </div>
@@ -243,8 +243,8 @@ export const CustomersPage: React.FC = () => {
 
       {/* Modal Registrar Cliente */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+        <div className="fixed inset-0 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto my-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
               <h3 className="font-bold text-slate-900 text-sm">Registrar Nuevo Cliente</h3>
               <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-slate-600">
