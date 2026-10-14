@@ -20,7 +20,7 @@ app = FastAPI(
 
 import os
 
-# Configuración de CORS con soporte para frontend local, Cloudflare Pages y túnel ngrok
+# CORS: solo orígenes exactos autorizados (localhost + FRONTEND_URL de Cloudflare Pages)
 cors_origins = list(settings.BACKEND_CORS_ORIGINS)
 frontend_url = os.getenv("FRONTEND_URL")
 if frontend_url and frontend_url not in cors_origins:
@@ -29,7 +29,6 @@ if frontend_url and frontend_url not in cors_origins:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_origin_regex=r"^https://.*\.pages\.dev$|^https://.*\.ngrok-free\.app$|^https://.*\.ngrok\.app$|^https://.*\.ngrok\.io$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
