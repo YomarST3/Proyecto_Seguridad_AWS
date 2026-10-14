@@ -4,6 +4,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { AppLayout } from './layouts/AppLayout';
 import { LoginPage } from './modules/auth/LoginPage';
+import { RegisterPage } from './modules/auth/RegisterPage';
+import { EmailVerificationPendingPage } from './modules/auth/EmailVerificationPendingPage';
+import { AccessRequestPendingPage } from './modules/auth/AccessRequestPendingPage';
 import { DashboardPage } from './modules/dashboard/DashboardPage';
 import { CustomersPage } from './modules/customers/CustomersPage';
 import { ProductsPage } from './modules/products/ProductsPage';
@@ -42,6 +45,9 @@ export const App: React.FC = () => {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/registro" element={<RegisterPage />} />
+          <Route path="/verificar-correo-pendiente" element={<EmailVerificationPendingPage />} />
+          <Route path="/pendiente-aprobacion" element={<AccessRequestPendingPage />} />
 
           <Route
             path="/"
@@ -51,6 +57,7 @@ export const App: React.FC = () => {
               </ProtectedRoute>
             }
           >
+
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="customers" element={<CustomersPage />} />

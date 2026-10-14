@@ -1,11 +1,28 @@
 export interface User {
-  id: number;
+  id: string | number;
   email: string;
+  correo_electronico?: string;
   full_name: string;
-  role: 'ADMIN' | 'MANAGER' | 'SALESPERSON' | 'ANALYST' | 'WAREHOUSE';
+  nombre_completo?: string;
+  role?: string;
+  roles?: string[];
+  permisos?: string[];
   company_id: number;
   is_active: boolean;
 }
+
+export interface SolicitudAcceso {
+  id: number;
+  usuario_id: string;
+  empresa_id: number;
+  nombre_completo: string;
+  correo_electronico: string;
+  motivo?: string;
+  estado: 'PENDIENTE' | 'APROBADA' | 'RECHAZADA';
+  creado_en: string;
+  actualizado_en: string;
+}
+
 
 export interface Customer {
   id: number;

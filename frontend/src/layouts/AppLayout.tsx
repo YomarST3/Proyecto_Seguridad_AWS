@@ -28,7 +28,22 @@ export const AppLayout: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const storedUser = localStorage.getItem('salesia_user');
-  const user = storedUser ? JSON.parse(storedUser) : { full_name: 'Administrador General', role: 'ADMIN', email: 'admin@salesia.com' };
+  const user = storedUser ? JSON.parse(storedUser) : {
+    full_name: 'Administrador General',
+    role: 'ADMINISTRADOR',
+    roles: ['ADMINISTRADOR'],
+    permisos: ['empresas:configurar'],
+    email: 'admin@salesia.com'
+  };
+
+  const userPermisos: string[] = user.permisos || [];
+  const userRoles: string[] = user.roles || (user.role ? [user.role] : []);
+  const esAdmin = userRoles.some((r: string) => r.toUpperCase().includes('ADMIN')) || userPermisos.includes('empresas:configurar');
+
+  const tienePermiso = (codigo?: string) => {
+    if (!codigo || esAdmin) return true;
+    return userPermisos.includes(codigo);
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('salesia_token');
@@ -36,46 +51,67 @@ export const AppLayout: React.FC = () => {
     navigate('/login');
   };
 
-  const navGroups = [
+  interface NavItem {
+    label: string;
+    path: string;
+    icon: React.ComponentType<{ className?: string }>;
+    permiso?: string;
+  }
+
+  interface NavGroup {
+    group: string;
+    items: NavItem[];
+  }
+
+  const allNavGroups: NavGroup[] = [
     {
       group: 'PRINCIPAL',
       items: [
         { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard }
       ]
     },
+
     {
       group: 'GESTIÓN COMERCIAL',
       items: [
-        { label: 'Clientes', path: '/customers', icon: Users },
-        { label: 'Productos', path: '/products', icon: Package },
-        { label: 'Inventario', path: '/inventory', icon: Boxes },
-        { label: 'Pedidos', path: '/orders', icon: FileSpreadsheet },
-        { label: 'Ventas', path: '/sales', icon: BadgeDollarSign },
-        { label: 'Pagos', path: '/payments', icon: CreditCard }
+        { label: 'Clientes', path: '/customers', icon: Users, permiso: 'clientes:leer' },
+        { label: 'Productos', path: '/products', icon: Package, permiso: 'productos:leer' },
+        { label: 'Inventario', path: '/inventory', icon: Boxes, permiso: 'inventario:leer' },
+        { label: 'Pedidos', path: '/orders', icon: FileSpreadsheet, permiso: 'pedidos:crear' },
+        { label: 'Ventas', path: '/sales', icon: BadgeDollarSign, permiso: 'ventas:crear' },
+        { label: 'Pagos', path: '/payments', icon: CreditCard, permiso: 'pagos:registrar' }
       ]
     },
     {
       group: 'PERSONAL',
       items: [
-        { label: 'Vendedores', path: '/employees', icon: UserCheck }
+        { label: 'Vendedores', path: '/employees', icon: UserCheck, permiso: 'personal:administrar' }
       ]
     },
     {
       group: 'INTELIGENCIA COMERCIAL',
       items: [
-        { label: 'Analytics', path: '/analytics', icon: BarChart3 },
-        { label: 'Probabilidades', path: '/probability', icon: Percent },
-        { label: 'Insights', path: '/insights', icon: Sparkles },
-        { label: 'Reportes', path: '/reports', icon: FileText }
+        { label: 'Analytics', path: '/analytics', icon: BarChart3, permiso: 'analytics:ver' },
+        { label: 'Probabilidades', path: '/probability', icon: Percent, permiso: 'probabilidad:calcular' },
+        { label: 'Insights', path: '/insights', icon: Sparkles, permiso: 'insights:ver' },
+        { label: 'Reportes', path: '/reports', icon: FileText, permiso: 'reportes:exportar' }
       ]
     },
     {
       group: 'ADMINISTRACIÓN',
       items: [
-        { label: 'Configuración', path: '/settings', icon: Settings }
+        { label: 'Configuración & RBAC', path: '/settings', icon: Settings, permiso: 'empresas:configurar' }
       ]
     }
   ];
+
+  const navGroups = allNavGroups
+    .map(group => ({
+      ...group,
+      items: group.items.filter(item => tienePermiso(item.permiso))
+    }))
+    .filter(group => group.items.length > 0);
+
 
   return (
     <div className="flex h-screen w-full bg-slate-50 text-slate-800 antialiased overflow-hidden">
@@ -134,7 +170,10 @@ export const AppLayout: React.FC = () => {
             </div>
             <div className="overflow-hidden">
               <p className="text-xs font-medium text-slate-200 truncate">{user.full_name}</p>
-              <p className="text-[10px] text-slate-400 truncate">{user.role}</p>
+              <p className="text-[10px] text-sky-400 font-medium truncate">
+                {user.roles && user.roles.length > 0 ? user.roles.join(' • ') : user.role}
+              </p>
+
             </div>
           </div>
           <button

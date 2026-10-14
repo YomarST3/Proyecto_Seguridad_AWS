@@ -107,12 +107,27 @@ A lo largo de las iteraciones de desarrollo se completaron los siguientes hitos:
 * Modelado de esquemas JSON con validación estricta de tipos de datos en Pydantic v2.
 * Documento oficial: [`docs/FASE_02_ARQUITECTURA_Y_CONTRATOS.md`](file:///c:/Users/usuario/OneDrive/Documentos/GitHub/Proyecto_Seguridad_AWS/docs/FASE_02_ARQUITECTURA_Y_CONTRATOS.md).
 
-### 3. Etapa 01 — Módulo Administrativo y Control de Acceso (RBAC)
-* **Estandarización al español** en entidades y servicios (`empresas`, `usuarios`, `roles`, `permisos`, `usuarios_roles`, `roles_permisos`).
-* **Vincular usuarios con Supabase Auth:** La tabla `public.usuarios` utiliza `UUID` como clave primaria vinculada 1:1 a `auth.users(id)`.
-* **Guardias de autorización RBAC:** Dependencia FastAPI `requerir_permiso("codigo:permiso")` para verificar permisos granulares en cada llamada HTTP.
+### 3. Etapa 01 — Sistema de Autenticación y Control de Acceso por Roles (RBAC)
+* **Integración con Supabase Auth (GoTrue):** Delegación completa de credenciales y hashing de contraseñas a Supabase Auth. Las contraseñas jamás se almacenan en tablas de la aplicación.
+* **Formulario de Inicio de Sesión de Dos Pasos:**
+  * **Paso 1 (Correo Electrónico):** Validación sintáctica estricta y protección contra enumeración de cuentas (nunca revela la existencia o inexistencia de un usuario).
+  * **Paso 2 (Contraseña):** Autenticación criptográfica con toggle de visibilidad, mensajes de error genéricos y opción de recuperación de contraseña.
+* **Flujo Post-Login Empresarial:**
+  1. Obtención de token JWT desde Supabase Auth.
+  2. Validación y decodificación criptográfica del token en FastAPI.
+  3. Búsqueda y vinculación del usuario mediante su identificador único `auth.users.id` (UUID).
+  4. Verificación de estado de cuenta (`activo == true`).
+  5. Consulta y carga dinámica de la matriz de roles y permisos granulares.
+  6. Redirección condicionada al dashboard correspondiente o pantalla de solicitud pendiente.
+* **Registro de Cuentas y Aprobación Idempotente:**
+  * Registro de colaboradores mediante Supabase Auth con confirmación de correo.
+  * Inserción idempotente en `solicitudes_acceso` (estado `PENDIENTE`), bloqueando acceso a cualquier módulo corporativo hasta aprobación por un administrador.
+  * Los usuarios regulares no pueden auto-asignarse el rol `ADMINISTRADOR`.
+* **Gobernanza Administrativa de Solicitudes:** Módulo en Configuración (`SettingsPage.tsx`) que permite a los administradores autorizar o rechazar solicitudes, asignando uno o múltiples roles empresariales simultáneos (`GERENTE`, `VENDEDOR`, `ANALISTA`, `ALMACEN`, `ADMINISTRADOR`).
+* **Procedimiento Seguro de Primer Administrador:** Script CLI auditado [`backend/bootstrap_admin.py`](file:///c:/Users/usuario/OneDrive/Documentos/GitHub/Proyecto_Seguridad_AWS/backend/bootstrap_admin.py) para inicializar al administrador principal con salvaguardas de concurrencia e inmutabilidad.
+* **Estandarización al español** en entidades y servicios (`empresas`, `usuarios`, `roles`, `permisos`, `usuarios_roles`, `roles_permisos`, `solicitudes_acceso`).
+* **Guardias de autorización RBAC:** Dependencia FastAPI `requerir_permiso("codigo:permiso")` para verificar permisos granulares en cada operación HTTP.
 * **Salvaguarda de Administradores:** Regla que bloquea la desactivación o revocación del último usuario administrador del sistema.
-* **Script SQL DDL y Catálogo:** Archivo ejecutable [`docs/etapa01_modulo_administrativo.sql`](file:///c:/Users/usuario/OneDrive/Documentos/GitHub/Proyecto_Seguridad_AWS/docs/etapa01_modulo_administrativo.sql) con índices optimizados y triggers automáticos de auditoría temporal (`actualizado_en`).
 
 ### 4. Motor Estadístico y Probabilístico (Semana 07)
 * Módulo matemático autónomo en [`backend/app/statistics/engine.py`](file:///c:/Users/usuario/OneDrive/Documentos/GitHub/Proyecto_Seguridad_AWS/backend/app/statistics/engine.py).
@@ -446,18 +461,23 @@ El backend incluye una suite completa de pruebas unitarias y de integración des
 pytest backend/tests -v
 ```
 
-### Cobertura de Pruebas:
-1. **Control de Acceso RBAC ([`test_etapa01_administracion.py`](file:///c:/Users/usuario/OneDrive/Documentos/GitHub/Proyecto_Seguridad_AWS/backend/tests/test_etapa01_administracion.py)):**
+### Cobertura de Pruebas (21/21 Pruebas Aprobadas):
+1. **Seguridad y Autenticación Supabase ([`test_seguridad_autenticacion.py`](file:///c:/Users/usuario/OneDrive/Documentos/GitHub/Proyecto_Seguridad_AWS/backend/tests/test_seguridad_autenticacion.py)):**
+   * Verificación de correo con mitigación estricta de enumeración de cuentas (`200 OK` indistinto).
+   * Validación criptográfica de tokens Supabase y rechazo con `401 Unauthorized` ante tokens espurios o manipulados.
+   * Carga de sesión activa con resolución de UUID, roles activos y los 20 permisos granulares.
+   * Ciclo completo de solicitud de acceso: Registro pendiente, bloqueo de módulos, aprobación por administrador con asignación de múltiples roles (`GERENTE`, `VENDEDOR`) y creación en `usuarios`.
+2. **Control de Acceso RBAC ([`test_etapa01_administracion.py`](file:///c:/Users/usuario/OneDrive/Documentos/GitHub/Proyecto_Seguridad_AWS/backend/tests/test_etapa01_administracion.py)):**
    * Validación de recuperación de perfil y verificación de los 20 permisos para rol `ADMINISTRADOR`.
    * Consulta de datos institucionales de empresa.
    * Control de acceso estricto: Acceso autorizado con código `200 OK` para admin y denegación con `403 Forbidden` para vendedores sin permiso `usuarios:administrar`.
    * Catálogo de roles del sistema y permisos granulares.
-2. **Motor Estadístico y Probabilidad ([`test_statistics.py`](file:///c:/Users/usuario/OneDrive/Documentos/GitHub/Proyecto_Seguridad_AWS/backend/tests/test_statistics.py)):**
+3. **Motor Estadístico y Probabilidad ([`test_statistics.py`](file:///c:/Users/usuario/OneDrive/Documentos/GitHub/Proyecto_Seguridad_AWS/backend/tests/test_statistics.py)):**
    * Cálculo determinístico de media aritmética y manejo de muestras vacías (`ValueError`).
    * Mediana para tamaños de muestra impares y pares (interpolación).
    * Comparación de media vs mediana para detección prudente de asimetría.
    * Evaluación formal del **Teorema de Bayes** ($P(A|B)$) y validación de casos anómalos (división por cero y violación del axioma de probabilidad conjunta).
-3. **Endpoints de API ([`test_api.py`](file:///c:/Users/usuario/OneDrive/Documentos/GitHub/Proyecto_Seguridad_AWS/backend/tests/test_api.py)):**
+4. **Endpoints de API ([`test_api.py`](file:///c:/Users/usuario/OneDrive/Documentos/GitHub/Proyecto_Seguridad_AWS/backend/tests/test_api.py)):**
    * Healthcheck `/api/v1/health`.
    * Autenticación JWT y endpoint del Teorema de Bayes vía HTTP.
 
@@ -521,4 +541,4 @@ Proyecto_Seguridad_AWS/
 ## 👥 Autores y Mantenimiento
 
 * **Proyecto:** SalesIA Enterprise — Servicio de Seguridad en AWS
-* **Estado:** Etapa 01 (Módulo Administrativo y RBAC) completada satisfactoriamente con 17/17 pruebas automatizadas operacionales.
+* **Estado:** Etapa 01 (Autenticación y RBAC con Supabase) completada satisfactoriamente con 21/21 pruebas automatizadas operacionales (100% de éxito).
