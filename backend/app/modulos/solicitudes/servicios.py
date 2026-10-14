@@ -1,5 +1,6 @@
 from typing import List, Optional
 from uuid import UUID
+from datetime import datetime
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
@@ -11,7 +12,7 @@ from app.modulos.roles.modelos import Rol, UsuarioRol
 
 class ServicioSolicitudes:
     @staticmethod
-    def obtener_por_id(db: Session, solicitud_id: int) -> SolicitudAcceso:
+    def obtener_por_id(db: Session, solicitud_id: UUID) -> SolicitudAcceso:
         solicitud = db.query(SolicitudAcceso).filter(SolicitudAcceso.id == solicitud_id).first()
         if not solicitud:
             raise HTTPException(
@@ -23,8 +24,8 @@ class ServicioSolicitudes:
     @staticmethod
     def obtener_por_usuario_id(db: Session, usuario_id: UUID) -> Optional[SolicitudAcceso]:
         return db.query(SolicitudAcceso).filter(
-            SolicitudAcceso.usuario_id == usuario_id
-        ).order_by(SolicitudAcceso.creado_en.desc()).first()
+            SolicitudAcceso.auth_usuario_id == usuario_id
+        ).order_by(SolicitudAcceso.creada_en.desc()).first()
 
     @staticmethod
     def crear_solicitud_idempotente(db: Session, datos: SolicitudAccesoCrear) -> SolicitudAcceso:
@@ -40,10 +41,9 @@ class ServicioSolicitudes:
                 detail="El usuario ya tiene una cuenta activa en el sistema empresarial."
             )
 
-        # Buscar solicitud previa para evitar duplicados
+        # Buscar solicitud previa por identidad auth_usuario_id
         solicitud_existente = db.query(SolicitudAcceso).filter(
-            (SolicitudAcceso.usuario_id == datos.usuario_id) |
-            (SolicitudAcceso.correo_electronico == datos.correo_electronico)
+            SolicitudAcceso.auth_usuario_id == datos.usuario_id
         ).first()
 
         if solicitud_existente:
@@ -52,20 +52,15 @@ class ServicioSolicitudes:
             elif solicitud_existente.estado == "RECHAZADA":
                 # Permitir reintentar solicitud si fue rechazada previamente
                 solicitud_existente.estado = "PENDIENTE"
-                solicitud_existente.motivo = datos.motivo
-                solicitud_existente.usuario_id = datos.usuario_id
-                solicitud_existente.nombre_completo = datos.nombre_completo.strip()
+                solicitud_existente.observacion = datos.motivo
                 db.commit()
                 db.refresh(solicitud_existente)
                 return solicitud_existente
 
         try:
             nueva_solicitud = SolicitudAcceso(
-                usuario_id=datos.usuario_id,
-                empresa_id=datos.empresa_id,
-                nombre_completo=datos.nombre_completo.strip(),
-                correo_electronico=datos.correo_electronico.lower().strip(),
-                motivo=datos.motivo,
+                auth_usuario_id=datos.usuario_id,
+                observacion=datos.motivo,
                 estado="PENDIENTE"
             )
 
@@ -95,22 +90,19 @@ class ServicioSolicitudes:
             raise err
 
     @staticmethod
-    def listar_pendientes(db: Session, empresa_id: int) -> List[SolicitudAcceso]:
+    def listar_pendientes(db: Session, empresa_id: int = 1) -> List[SolicitudAcceso]:
         return db.query(SolicitudAcceso).filter(
-            SolicitudAcceso.empresa_id == empresa_id,
             SolicitudAcceso.estado == "PENDIENTE"
-        ).order_by(SolicitudAcceso.creado_en.desc()).all()
+        ).order_by(SolicitudAcceso.creada_en.desc()).all()
 
     @staticmethod
-    def listar_todas(db: Session, empresa_id: int) -> List[SolicitudAcceso]:
-        return db.query(SolicitudAcceso).filter(
-            SolicitudAcceso.empresa_id == empresa_id
-        ).order_by(SolicitudAcceso.creado_en.desc()).all()
+    def listar_todas(db: Session, empresa_id: int = 1) -> List[SolicitudAcceso]:
+        return db.query(SolicitudAcceso).order_by(SolicitudAcceso.creada_en.desc()).all()
 
     @staticmethod
     def aprobar_solicitud(
         db: Session,
-        solicitud_id: int,
+        solicitud_id: UUID,
         datos: SolicitudAprobar,
         admin_id: UUID
     ) -> Usuario:
@@ -123,10 +115,9 @@ class ServicioSolicitudes:
                 detail=f"No se puede aprobar una solicitud en estado '{solicitud.estado}'."
             )
 
-        # Validar que los roles solicitados existan y pertenezcan a la empresa
+        # Validar que los roles solicitados existan
         roles = db.query(Rol).filter(
             Rol.id.in_(datos.roles_ids),
-            Rol.empresa_id == solicitud.empresa_id,
             Rol.activo == True
         ).all()
 
@@ -137,20 +128,19 @@ class ServicioSolicitudes:
             )
 
         # Crear o reactivar usuario empresarial
-        usuario = db.query(Usuario).filter(Usuario.id == solicitud.usuario_id).first()
+        usuario = db.query(Usuario).filter(Usuario.id == solicitud.auth_usuario_id).first()
         if not usuario:
             usuario = Usuario(
-                id=solicitud.usuario_id,
-                empresa_id=solicitud.empresa_id,
-                nombre_completo=solicitud.nombre_completo,
-                correo_electronico=solicitud.correo_electronico,
+                id=solicitud.auth_usuario_id,
+                empresa_id=1,
+                nombre_completo="Usuario Aprobado",
+                correo_electronico="",
                 activo=True
             )
             db.add(usuario)
             db.flush()
         else:
             usuario.activo = True
-            usuario.nombre_completo = solicitud.nombre_completo
 
         # Asignar roles autorizados
         db.query(UsuarioRol).filter(UsuarioRol.usuario_id == usuario.id).delete()
@@ -164,7 +154,8 @@ class ServicioSolicitudes:
 
         # Actualizar estado de la solicitud
         solicitud.estado = "APROBADA"
-        solicitud.revisado_por_id = admin_id
+        solicitud.revisada_por = admin_id
+        solicitud.revisada_en = datetime.utcnow()
 
         db.commit()
         db.refresh(usuario)
@@ -173,7 +164,7 @@ class ServicioSolicitudes:
     @staticmethod
     def rechazar_solicitud(
         db: Session,
-        solicitud_id: int,
+        solicitud_id: UUID,
         admin_id: UUID,
         motivo: Optional[str] = None
     ) -> SolicitudAcceso:
@@ -186,9 +177,10 @@ class ServicioSolicitudes:
             )
 
         solicitud.estado = "RECHAZADA"
-        solicitud.revisado_por_id = admin_id
+        solicitud.revisada_por = admin_id
+        solicitud.revisada_en = datetime.utcnow()
         if motivo:
-            solicitud.motivo = motivo
+            solicitud.observacion = motivo
 
         db.commit()
         db.refresh(solicitud)

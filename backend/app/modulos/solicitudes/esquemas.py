@@ -15,16 +15,13 @@ class SolicitudAccesoCrear(BaseModel):
 class SolicitudAccesoRespuesta(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
-    usuario_id: UUID
-    empresa_id: int
-    nombre_completo: str
-    correo_electronico: str
-    motivo: Optional[str] = None
+    id: UUID
+    auth_usuario_id: UUID
     estado: str
-    revisado_por_id: Optional[UUID] = None
-    creado_en: datetime
-    actualizado_en: datetime
+    revisada_por: Optional[UUID] = None
+    revisada_en: Optional[datetime] = None
+    creada_en: datetime
+    observacion: Optional[str] = None
 
 
 class SolicitudAprobar(BaseModel):

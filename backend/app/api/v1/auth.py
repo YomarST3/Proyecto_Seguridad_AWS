@@ -240,7 +240,7 @@ def listar_solicitudes_acceso(
 
 @router.post("/solicitudes/{solicitud_id}/aprobar")
 def aprobar_solicitud_acceso(
-    solicitud_id: int,
+    solicitud_id: UUID,
     datos: SolicitudAprobar,
     admin: Usuario = Depends(requerir_permiso("usuarios:administrar")),
     db: Session = Depends(obtener_sesion_db)
@@ -261,7 +261,7 @@ def aprobar_solicitud_acceso(
 
 @router.post("/solicitudes/{solicitud_id}/rechazar")
 def rechazar_solicitud_acceso(
-    solicitud_id: int,
+    solicitud_id: UUID,
     datos: Optional[SolicitudRechazar] = None,
     admin: Usuario = Depends(requerir_permiso("usuarios:administrar")),
     db: Session = Depends(obtener_sesion_db)
