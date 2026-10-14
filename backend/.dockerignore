@@ -1,0 +1,24 @@
+# Reducir el contexto Docker de SalesIA Enterprise
+venv/
+.venv/
+**/venv/
+**/.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+**/.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.git/
+.env
+.env.*
+*.log
+*.sqlite
+*.db
+tests/
+htmlcov/
+.coverage
+.idea/
+.vscode/
