@@ -45,6 +45,7 @@ class VerificarCorreoPaso1(BaseModel):
 
 class RespuestaPaso1(BaseModel):
     valido: bool = True
+    existe: bool = True
     siguiente_paso: str = "password"
     mensaje: str = "Formato de correo válido. Proceda a ingresar su contraseña."
 
@@ -77,16 +78,70 @@ class EstadoSesionRespuesta(BaseModel):
 # ==============================================================================
 
 @router.post("/verificar-correo", response_model=RespuestaPaso1)
-def verificar_correo_paso1(datos: VerificarCorreoPaso1):
+def verificar_correo_paso1(
+    datos: VerificarCorreoPaso1,
+    db: Session = Depends(obtener_sesion_db)
+):
     """
     Paso 1 del Login Empresarial:
-    Valida el formato del correo y responde siempre con éxito para evitar
-    la enumeración de cuentas por atacantes externos (seguridad anti-enumeración).
+    Valida si el correo electrónico existe en la base de datos empresarial o auth.users.
+    Si no existe, informa al usuario para que proceda a crear su cuenta.
     """
+    from sqlalchemy import text
+    correo_limpio = datos.correo.lower().strip()
+
+    # Cuentas maestras / demo siempre reconocidas
+    if correo_limpio in ["pruebas.salesia@gmail.com", "admin@salesia.com", "prueba@salesia.com"] or "admin" in correo_limpio:
+        return RespuestaPaso1(
+            valido=True,
+            existe=True,
+            siguiente_paso="password",
+            mensaje="Correo verificado. Ingrese su contraseña."
+        )
+
+    # Buscar en tabla usuarios
+    try:
+        row = db.execute(
+            text("SELECT id FROM usuarios WHERE LOWER(correo) = :correo LIMIT 1"),
+            {"correo": correo_limpio}
+        ).fetchone()
+
+        if row:
+            return RespuestaPaso1(
+                valido=True,
+                existe=True,
+                siguiente_paso="password",
+                mensaje="Correo registrado."
+            )
+
+        # Buscar en auth.users si existe
+        auth_row = db.execute(
+            text("SELECT id FROM auth.users WHERE LOWER(email) = :email LIMIT 1"),
+            {"email": correo_limpio}
+        ).fetchone()
+
+        if auth_row:
+            return RespuestaPaso1(
+                valido=True,
+                existe=True,
+                siguiente_paso="password",
+                mensaje="Usuario localizado."
+            )
+    except Exception:
+        # En caso de excepción de conexión, no bloquear al usuario si el formato es correcto
+        return RespuestaPaso1(
+            valido=True,
+            existe=True,
+            siguiente_paso="password",
+            mensaje="Correo procesado."
+        )
+
+    # Si no fue encontrado en la base de datos
     return RespuestaPaso1(
         valido=True,
-        siguiente_paso="password",
-        mensaje="Formato de correo válido."
+        existe=False,
+        siguiente_paso="registro",
+        mensaje="este correo aun no esta registrado porfavor crearse una cuenta"
     )
 
 

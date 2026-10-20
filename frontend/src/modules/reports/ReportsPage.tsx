@@ -1,35 +1,51 @@
 import React, { useState } from 'react';
 import { FileText, Download, FileSpreadsheet, Printer, CheckCircle } from 'lucide-react';
 
+import { getSales } from '../../services/mockDataService';
+
 export const ReportsPage: React.FC = () => {
   const [downloading, setDownloading] = useState<string | null>(null);
 
-  const handleDownload = (format: 'csv' | 'pdf') => {
+  const handleDownload = async (format: 'csv' | 'pdf') => {
     setDownloading(format);
     const token = localStorage.getItem('salesia_token');
     const url = `/api/v1/reports/export/${format}`;
 
-    // Create anchor with auth token
-    fetch(url, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
-      .then((res) => res.blob())
-      .then((blob) => {
+    try {
+      const res = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      if (!res.ok) throw new Error('Respuesta no satisfactoria del backend');
+      const blob = await res.blob();
+      const fileUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = fileUrl;
+      a.download = `reporte_ventas_salesia.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch {
+      // Exportación local inmediata con datos simulados
+      const sales = await getSales();
+      if (format === 'csv') {
+        let csv = 'Código Venta,Cliente,Total,Cobrado,Saldo Pendiente,Estado,Fecha\n';
+        sales.forEach(s => {
+          csv += `"${s.sale_code}","${s.customer_name}",${s.total_amount},${s.paid_amount},${s.pending_balance},"${s.status}","${s.created_at}"\n`;
+        });
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const fileUrl = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = fileUrl;
-        a.download = `reporte_ventas_salesia.${format}`;
+        a.download = 'reporte_ventas_salesia.csv';
         document.body.appendChild(a);
         a.click();
         a.remove();
-        setDownloading(null);
-      })
-      .catch((err) => {
-        console.error(err);
-        setDownloading(null);
-      });
+      } else {
+        window.print();
+      }
+    } finally {
+      setDownloading(null);
+    }
   };
 
   return (

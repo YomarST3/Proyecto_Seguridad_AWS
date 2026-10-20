@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { UserCheck, Target, Award, DollarSign, Mail, Phone, Calendar } from 'lucide-react';
-import api from '../../services/api';
+import { getEmployees, getEmployeePerformance } from '../../services/mockDataService';
 import { Employee, EmployeePerformance } from '../../types';
 
 export const EmployeesPage: React.FC = () => {
@@ -9,12 +9,16 @@ export const EmployeesPage: React.FC = () => {
 
   const { data: employees = [], isLoading } = useQuery<Employee[]>({
     queryKey: ['employees'],
-    queryFn: async () => (await api.get('/employees')).data
+    queryFn: async () => await getEmployees()
   });
 
   const { data: performance } = useQuery<EmployeePerformance>({
     queryKey: ['employeePerformance', selectedEmpId],
-    queryFn: async () => (await api.get(`/employees/${selectedEmpId}/performance`)).data,
+    queryFn: async () => {
+      if (!selectedEmpId) return undefined as any;
+      const res = await getEmployeePerformance(selectedEmpId);
+      return res as EmployeePerformance;
+    },
     enabled: selectedEmpId !== null
   });
 

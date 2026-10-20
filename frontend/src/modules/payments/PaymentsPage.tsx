@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CreditCard, Plus, DollarSign, Search, CheckCircle2, X } from 'lucide-react';
-import api from '../../services/api';
+import { getSales, getPaymentMethods, createPayment } from '../../services/mockDataService';
 import { Payment, PaymentMethod, Sale } from '../../types';
 
 export const PaymentsPage: React.FC = () => {
@@ -18,12 +18,12 @@ export const PaymentsPage: React.FC = () => {
   // Queries
   const { data: sales = [] } = useQuery<Sale[]>({
     queryKey: ['sales'],
-    queryFn: async () => (await api.get('/sales')).data
+    queryFn: async () => await getSales()
   });
 
   const { data: paymentMethods = [] } = useQuery<PaymentMethod[]>({
     queryKey: ['paymentMethods'],
-    queryFn: async () => (await api.get('/payments/methods')).data
+    queryFn: async () => await getPaymentMethods()
   });
 
   // Sales with pending balance
@@ -41,7 +41,7 @@ export const PaymentsPage: React.FC = () => {
         reference,
         notes
       };
-      return (await api.post('/payments', payload)).data;
+      return await createPayment(payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales'] });

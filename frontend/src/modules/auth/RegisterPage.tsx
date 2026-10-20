@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
-  BadgeDollarSign,
+  Building2,
   Lock,
   Mail,
   User,
@@ -12,11 +12,11 @@ import {
   ShieldCheck,
   FileQuestion
 } from 'lucide-react';
-import api from '../../services/api';
-import supabase from '../../services/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
+  const { signUp } = useAuth();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -51,210 +51,175 @@ export const RegisterPage: React.FC = () => {
     setLoading(true);
 
     try {
-      let userId: string | null = null;
-      let emailNeedsConfirmation = false;
+      const result = await signUp(email.trim(), password, fullName.trim(), reason.trim());
 
-      // 2. Registrar credenciales exclusivamente en Supabase Auth
-      try {
-        const { data, error: supaError } = await supabase.auth.signUp({
-          email: email.trim(),
-          password: password,
-          options: {
-            data: {
-              full_name: fullName.trim(),
-            },
-          },
-        });
-
-        if (supaError) {
-          setError(supaError.message || 'Error al registrar credenciales en el proveedor de autenticación.');
-          setLoading(false);
-          return;
-        }
-
-        if (data?.user) {
-          userId = data.user.id;
-          // Si Supabase tiene confirmación de correo activa y no hay sesión inmediata
-          if (!data.session) {
-            emailNeedsConfirmation = true;
-          }
-        }
-      } catch (err) {
-        // En entorno local de pruebas si Supabase cloud está offline
-        userId = crypto.randomUUID();
-      }
-
-      if (!userId) {
-        setError('No se pudo generar la identidad del usuario en Supabase Auth.');
+      if (!result.success) {
+        setError(result.error || 'Error al procesar el registro con Supabase Auth.');
         setLoading(false);
         return;
       }
 
-      // 3. Registrar solicitud en solicitudes_acceso de forma segura e idempotente
-      await api.post('/auth/solicitar-acceso', {
-        usuario_id: userId,
-        empresa_id: 1, // Empresa principal
-        nombre_completo: fullName.trim(),
-        correo_electronico: email.trim(),
-        motivo: reason.trim() || 'Nueva solicitud de incorporación'
-      });
-
-      // Guardar correo para vista de estado
-      localStorage.setItem('salesia_pending_email', email.trim());
-
-      // 4. Redirigir según requiera confirmación de correo o revisión
-      if (emailNeedsConfirmation) {
+      // Redirigir según requiera confirmación de correo o revisión de acceso
+      if (result.emailNeedsConfirmation) {
         navigate('/verificar-correo-pendiente');
       } else {
         navigate('/pendiente-aprobacion');
       }
-
-    } catch (err: any) {
-      const detail = err.response?.data?.detail;
-      setError(detail || 'Ocurrió un error al procesar la solicitud de registro.');
+    } catch {
+      setError('Ocurrió un error inesperado al procesar la solicitud de registro.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen w-full bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background accents */}
-      <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-sky-600/10 rounded-full blur-3xl pointer-events-none"></div>
-      <div className="absolute bottom-1/4 right-1/3 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div className="min-h-screen w-full bg-zinc-950 text-zinc-100 flex items-center justify-center p-4 sm:p-6 relative selection:bg-zinc-800 selection:text-white">
+      {/* Background visual accents */}
+      <div 
+        className="absolute inset-0 opacity-[0.03] pointer-events-none"
+        style={{
+          backgroundImage: `linear-gradient(to right, #ffffff 1px, transparent 1px), linear-gradient(to bottom, #ffffff 1px, transparent 1px)`,
+          backgroundSize: '36px 36px'
+        }}
+      />
+      <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-zinc-800/10 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="w-full max-w-lg bg-slate-900/90 border border-slate-800 rounded-2xl shadow-2xl p-5 sm:p-8 backdrop-blur-sm z-10">
+      <div className="w-full max-w-lg bg-zinc-900/90 border border-zinc-800 rounded-2xl shadow-2xl p-6 sm:p-8 backdrop-blur-md z-10 space-y-6">
         {/* Brand */}
-        <div className="flex flex-col items-center mb-6">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-sky-600 via-cyan-500 to-sky-400 flex items-center justify-center text-white shadow-xl shadow-sky-500/20 mb-3">
-            <BadgeDollarSign className="w-7 h-7" />
+        <div className="flex flex-col items-center text-center">
+          <div className="w-11 h-11 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-200 shadow-md mb-3">
+            <Building2 className="w-5 h-5 text-zinc-300" />
           </div>
-          <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-1.5">
-            Solicitud de Cuenta <span className="text-xs px-2 py-0.5 rounded bg-sky-950 text-sky-400 border border-sky-800/60 font-semibold tracking-wider">Enterprise</span>
+          <h1 className="text-xl font-semibold text-white tracking-tight flex items-center gap-2">
+            Solicitar Acceso <span className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded border border-zinc-800 bg-zinc-900 text-zinc-400">Enterprise</span>
           </h1>
-          <p className="text-xs text-slate-400 mt-1 text-center">
-            Las cuentas nuevas requieren verificación de correo y autorización de un administrador.
+          <p className="text-xs text-zinc-400 mt-1.5 max-w-sm leading-relaxed">
+            Las nuevas cuentas corporativas se vinculan al catálogo seguro de Supabase Auth y validan roles de acceso.
           </p>
         </div>
 
         {error && (
-          <div className="mb-5 p-3.5 rounded-lg bg-red-950/60 border border-red-800/80 text-red-300 text-xs flex items-center gap-2.5 animate-in fade-in">
+          <div className="p-3.5 rounded-xl bg-red-950/40 border border-red-900/60 text-red-200 text-xs flex items-center gap-3 animate-in fade-in">
             <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
-            <span>{error}</span>
+            <span className="flex-1 leading-relaxed">{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleRegister} className="space-y-3.5">
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+        <form onSubmit={handleRegister} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-zinc-300">
               Nombre Completo
             </label>
             <div className="relative">
-              <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <User className="w-4 h-4 text-zinc-400 absolute left-3.5 top-3 pointer-events-none" />
               <input
                 type="text"
                 required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-colors"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-3.5 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-colors"
                 placeholder="Ej. Martín Vargas Morales"
               />
             </div>
           </div>
 
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-zinc-300">
               Correo Electrónico Empresarial
             </label>
             <div className="relative">
-              <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <Mail className="w-4 h-4 text-zinc-400 absolute left-3.5 top-3 pointer-events-none" />
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-colors"
-                placeholder="colaborador@empresa.com"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-3.5 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-colors"
+                placeholder="colaborador@salesia.com"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-zinc-300">
                 Contraseña
               </label>
               <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <Lock className="w-4 h-4 text-zinc-400 absolute left-3.5 top-3 pointer-events-none" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-8 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-colors"
-                  placeholder="Min. 8 caracteres"
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-9 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-colors"
+                  placeholder="Mín. 8 caracteres"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-200"
+                  className="absolute right-3 top-2.5 text-zinc-400 hover:text-zinc-200 p-0.5 cursor-pointer"
+                  tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
               </div>
             </div>
 
-            <div>
-              <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-zinc-300">
                 Confirmar Contraseña
               </label>
               <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <Lock className="w-4 h-4 text-zinc-400 absolute left-3.5 top-3 pointer-events-none" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-colors"
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-3.5 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-colors"
                   placeholder="Repite la contraseña"
                 />
               </div>
             </div>
           </div>
 
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-zinc-300">
               Área o Motivo de Acceso (Opcional)
             </label>
             <div className="relative">
-              <FileQuestion className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <FileQuestion className="w-4 h-4 text-zinc-400 absolute left-3.5 top-3 pointer-events-none" />
               <input
                 type="text"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-colors"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-10 pr-3.5 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-colors"
                 placeholder="Ej. Ingreso al equipo comercial / Ventas"
               />
             </div>
           </div>
 
-          <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-lg text-[11px] text-slate-400 space-y-1">
-            <div className="flex items-center gap-1.5 text-sky-400 font-medium">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Política de Seguridad y Roles:</span>
+          <div className="p-3 bg-zinc-950 border border-zinc-800/80 rounded-xl text-xs text-zinc-400 space-y-1">
+            <div className="flex items-center gap-1.5 text-zinc-200 font-medium text-[11px]">
+              <ShieldCheck className="w-3.5 h-3.5 text-zinc-300" />
+              <span>Seguridad Zero-Trust:</span>
             </div>
-            <p>
-              Por seguridad, ninguna cuenta pública tiene asignado el rol Administrador. Tu solicitud será enviada para que un administrador apruebe los roles correspondientes.
+            <p className="text-[11px] text-zinc-400 leading-relaxed">
+              Las cuentas creadas ingresan con permisos de consulta y se validan con control de acceso por roles (RBAC).
             </p>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-2 bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 text-white font-medium py-2.5 rounded-lg text-xs shadow-lg shadow-sky-600/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full mt-2 bg-zinc-100 hover:bg-white text-zinc-950 font-semibold py-2.5 px-4 rounded-xl text-xs shadow-sm transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99]"
           >
             {loading ? (
-              <span>Procesando solicitud...</span>
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-zinc-400 border-t-zinc-950 rounded-full animate-spin" />
+                <span>Procesando solicitud...</span>
+              </>
             ) : (
               <>
                 <span>Registrar Solicitud</span>
@@ -264,10 +229,10 @@ export const RegisterPage: React.FC = () => {
           </button>
         </form>
 
-        <div className="mt-5 pt-4 border-t border-slate-800/80 text-center">
-          <p className="text-xs text-slate-400">
+        <div className="pt-4 border-t border-zinc-900 text-center">
+          <p className="text-xs text-zinc-400">
             ¿Ya tienes una cuenta activa?{' '}
-            <Link to="/login" className="text-sky-400 hover:text-sky-300 font-semibold">
+            <Link to="/login" className="text-zinc-200 hover:text-white font-medium underline underline-offset-4 transition-colors">
               Iniciar Sesión
             </Link>
           </p>

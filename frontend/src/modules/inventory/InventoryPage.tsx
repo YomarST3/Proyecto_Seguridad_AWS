@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Boxes, Plus, AlertTriangle, ArrowDownRight, ArrowUpRight, History, Sliders, X } from 'lucide-react';
-import api from '../../services/api';
+import { getInventory, getInventoryMovements, getProducts, createInventoryMovement } from '../../services/mockDataService';
 import { InventoryItem, InventoryMovement, Product } from '../../types';
 
 export const InventoryPage: React.FC = () => {
@@ -23,8 +23,7 @@ export const InventoryPage: React.FC = () => {
   const { data: inventory = [], isLoading: isLoadingInv } = useQuery<InventoryItem[]>({
     queryKey: ['inventory', lowStockFilter],
     queryFn: async () => {
-      const res = await api.get('/inventory', { params: { low_stock_only: lowStockFilter } });
-      return res.data;
+      return await getInventory({ low_stock_only: lowStockFilter });
     }
   });
 
@@ -32,8 +31,7 @@ export const InventoryPage: React.FC = () => {
   const { data: movements = [], isLoading: isLoadingMov } = useQuery<InventoryMovement[]>({
     queryKey: ['inventoryMovements'],
     queryFn: async () => {
-      const res = await api.get('/inventory/movements');
-      return res.data;
+      return await getInventoryMovements();
     },
     enabled: activeTab === 'movements'
   });
@@ -42,16 +40,14 @@ export const InventoryPage: React.FC = () => {
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ['products'],
     queryFn: async () => {
-      const res = await api.get('/products');
-      return res.data;
+      return await getProducts();
     }
   });
 
   // Movement mutation
   const movementMutation = useMutation({
     mutationFn: async (payload: typeof movementForm) => {
-      const res = await api.post('/inventory/movements', payload);
-      return res.data;
+      return await createInventoryMovement(payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory'] });

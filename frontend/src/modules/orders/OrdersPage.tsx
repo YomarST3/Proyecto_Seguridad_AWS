@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FileSpreadsheet, Plus, CheckCircle, XCircle, Search, ShoppingCart, User, X } from 'lucide-react';
-import api from '../../services/api';
+import { getOrders, getCustomers, getProducts, createOrder, confirmOrder, cancelOrder } from '../../services/mockDataService';
 import { Order, Customer, Product } from '../../types';
 
 export const OrdersPage: React.FC = () => {
@@ -20,21 +20,18 @@ export const OrdersPage: React.FC = () => {
   const { data: orders = [], isLoading } = useQuery<Order[]>({
     queryKey: ['orders', selectedStatus],
     queryFn: async () => {
-      const res = await api.get('/orders', {
-        params: { status: selectedStatus || undefined }
-      });
-      return res.data;
+      return await getOrders({ status: selectedStatus || undefined });
     }
   });
 
   const { data: customers = [] } = useQuery<Customer[]>({
     queryKey: ['customers'],
-    queryFn: async () => (await api.get('/customers')).data
+    queryFn: async () => await getCustomers()
   });
 
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ['products'],
-    queryFn: async () => (await api.get('/products')).data
+    queryFn: async () => await getProducts()
   });
 
   // Mutations
@@ -45,7 +42,7 @@ export const OrdersPage: React.FC = () => {
         items: orderItems,
         notes
       };
-      return (await api.post('/orders', payload)).data;
+      return await createOrder(payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
@@ -55,7 +52,7 @@ export const OrdersPage: React.FC = () => {
 
   const confirmMutation = useMutation({
     mutationFn: async (orderId: number) => {
-      return (await api.post(`/orders/${orderId}/confirm`)).data;
+      return await confirmOrder(orderId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
@@ -65,7 +62,7 @@ export const OrdersPage: React.FC = () => {
 
   const cancelMutation = useMutation({
     mutationFn: async (orderId: number) => {
-      return (await api.post(`/orders/${orderId}/cancel`)).data;
+      return await cancelOrder(orderId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });

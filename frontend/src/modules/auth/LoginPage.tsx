@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
-  BadgeDollarSign,
+  Building2,
   Lock,
   Mail,
   ArrowRight,
@@ -9,23 +9,29 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
+  CheckCircle2,
+  UserPlus,
   ShieldCheck,
-  CheckCircle2
+  Info
 } from 'lucide-react';
-import api from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 import supabase from '../../services/supabase';
+import api from '../../services/api';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const { signIn } = useAuth();
 
   // Paso 1: Correo / Paso 2: Contraseña
   const [step, setStep] = useState<1 | 2>(1);
-  const [email, setEmail] = useState('admin@salesia.com');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailNotRegistered, setEmailNotRegistered] = useState(false);
 
   // Modal para recuperar contraseña
   const [showResetModal, setShowResetModal] = useState(false);
@@ -34,153 +40,103 @@ export const LoginPage: React.FC = () => {
   const [resetLoading, setResetLoading] = useState(false);
 
   // --------------------------------------------------------------------------
-  // PASO 1: VALIDACIÓN DE CORREO (ANTI-ENUMERACIÓN)
+  // PASO 1: VERIFICAR SI EL CORREO EXISTE EN LA BASE DE DATOS
   // --------------------------------------------------------------------------
-  const handleStep1Submit = async (e: React.FormEvent) => {
+  const handleVerifyEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setEmailNotRegistered(false);
 
-    // Validación básica de formato
+    const emailTrimmed = email.trim().toLowerCase();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email.trim())) {
-      setError('Por favor introduce un correo electrónico válido.');
+    if (!emailRegex.test(emailTrimmed)) {
+      setError('Por favor ingresa un correo electrónico corporativo válido.');
       return;
     }
 
     setLoading(true);
+
     try {
-      // Endpoint anti-enumeración en FastAPI
-      await api.post('/auth/verificar-correo', { correo: email.trim() });
+      // 1. Cuentas maestras y de prueba conocidas siempre válidas
+      if (
+        emailTrimmed === 'pruebas.salesia@gmail.com' ||
+        emailTrimmed === 'admin@salesia.com' ||
+        emailTrimmed === 'prueba@salesia.com' ||
+        emailTrimmed.includes('admin')
+      ) {
+        setStep(2);
+        setLoading(false);
+        return;
+      }
+
+      // 2. Consultar endpoint de verificación en base de datos
+      let existe = false;
+      try {
+        const res = await api.post('/auth/verificar-correo', { correo: emailTrimmed });
+        if (res.data?.existe === true) {
+          existe = true;
+        } else if (res.data?.existe === false) {
+          existe = false;
+        }
+      } catch {
+        // Fallback: verificar si existe en tabla usuarios / solicitudes_acceso de Supabase
+        try {
+          const { data: userRow } = await supabase
+            .from('usuarios')
+            .select('id')
+            .eq('correo', emailTrimmed)
+            .maybeSingle();
+
+          if (userRow) {
+            existe = true;
+          }
+        } catch {
+          // Si no es posible conectar, permitir el paso para que GoTrue valide
+          existe = true;
+        }
+      }
+
+      if (!existe) {
+        setEmailNotRegistered(true);
+        setLoading(false);
+        return;
+      }
+
+      // Correo verificado con éxito, avanzar al paso de contraseña
       setStep(2);
-    } catch (err: any) {
-      // Ante cualquier eventualidad, avanza a paso 2 sin revelar si existe
-      setStep(2);
+    } catch {
+      setError('No fue posible validar el correo en este momento. Intenta nuevamente.');
     } finally {
       setLoading(false);
     }
   };
 
   // --------------------------------------------------------------------------
-  // PASO 2: AUTENTICACIÓN CON SUPABASE AUTH & FASTAPI
+  // PASO 2: INICIO DE SESIÓN CON CONTRASEÑA EN SUPABASE AUTH
   // --------------------------------------------------------------------------
-  const handleStep2Submit = async (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
 
+    if (!password) {
+      setError('Por favor ingresa tu contraseña de acceso.');
+      return;
+    }
+
+    setLoading(true);
+
     try {
-      // 1. Autenticación oficial directa con Supabase Auth (GoTrue)
-      let accessToken: string | null = null;
-      try {
-        const { data: supaData, error: supaError } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password: password,
-        });
+      const result = await signIn(email.trim(), password);
 
-        if (supaError) {
-          const msg = supaError.message.toLowerCase();
-          if (msg.includes('invalid login credentials') || msg.includes('invalid credentials')) {
-            setError('Correo electrónico o contraseña incorrectos.');
-          } else if (msg.includes('email not confirmed')) {
-            setError('Tu correo electrónico no ha sido verificado. Por favor revisa tu bandeja de entrada o spam.');
-          } else {
-            setError('Credenciales incorrectas o cuenta no autorizada.');
-          }
-          setLoading(false);
-          return;
-        }
-
-        if (supaData?.session?.access_token) {
-          accessToken = supaData.session.access_token;
-        }
-      } catch (networkErr: any) {
-        // En caso de corte total de red con Supabase en desarrollo local
-        try {
-          const localLogin = await api.post('/auth/login', {
-            email: email.trim(),
-            password: password,
-          });
-          accessToken = localLogin.data.access_token;
-        } catch {
-          setError('No fue posible conectar con el servidor de autenticación de Supabase.');
-          setLoading(false);
-          return;
-        }
-      }
-
-      if (!accessToken) {
-        setError('No se pudo obtener el token de acceso desde Supabase Auth.');
+      if (!result.success) {
+        setError(result.error || 'Contraseña incorrecta o credenciales no válidas.');
         setLoading(false);
         return;
       }
 
-      // 2. Validar criptográficamente el token y consultar claims empresariales en FastAPI
-      const sessionRes = await api.post('/auth/sesion', { access_token: accessToken });
-      const { estado, mensaje, usuario } = sessionRes.data;
-
-      if (estado === 'SOLICITUD_PENDIENTE') {
-        localStorage.setItem('salesia_pending_email', email.trim());
-        navigate('/pendiente-aprobacion');
-        return;
-      }
-
-      if (estado === 'SIN_ROLES') {
-        setError('Tu cuenta está confirmada pero aún no cuenta con ningún rol empresarial autorizado. Contacta a un administrador.');
-        return;
-      }
-
-      if (estado === 'RECHAZADA') {
-        setError('Tu solicitud de acceso fue rechazada por la administración de la empresa.');
-        return;
-      }
-
-      if (estado === 'INACTIVO') {
-        setError('Tu cuenta de usuario ha sido desactivada por un administrador corporativo.');
-        return;
-      }
-
-      if (estado === 'NO_REGISTRADO') {
-        setError('Tu cuenta existe en Supabase pero no tiene una solicitud ni registro en esta empresa.');
-        return;
-      }
-
-      if (estado === 'ACTIVO' && usuario && accessToken) {
-        // Guardar sesión y claims de roles/permisos
-        localStorage.setItem('salesia_token', accessToken);
-        localStorage.setItem('salesia_user', JSON.stringify({
-          id: usuario.id,
-          email: usuario.correo_electronico,
-          full_name: usuario.nombre_completo,
-          role: usuario.roles[0] || 'VENDEDOR',
-          roles: usuario.roles,
-          permisos: usuario.permisos,
-          company_id: usuario.empresa_id
-        }));
-
-        // Redirección según matriz de roles autorizados (Sección 8):
-        const roles = usuario.roles || [];
-        if (roles.includes('ADMINISTRADOR') || roles.includes('ADMIN')) {
-          navigate('/dashboard');
-        } else if (roles.includes('GERENTE') || roles.includes('MANAGER')) {
-          navigate('/dashboard');
-        } else if (roles.includes('VENDEDOR') || roles.includes('SELLER')) {
-          navigate('/customers');
-        } else if (roles.includes('ANALISTA') || roles.includes('ANALYST')) {
-          navigate('/analytics');
-        } else if (roles.includes('ALMACEN') || roles.includes('WAREHOUSE')) {
-          navigate('/inventory');
-        } else {
-          navigate('/dashboard');
-        }
-        return;
-      }
-
-      setError(mensaje || 'No se pudo verificar la sesión empresarial.');
-
-    } catch (err: any) {
-      // Errores genéricos y seguros (anti-enumeración)
-      const detail = err.response?.data?.detail;
-      setError(detail || 'Credenciales incorrectas o cuenta no autorizada.');
+      navigate(result.redirectTo || '/dashboard');
+    } catch {
+      setError('No fue posible procesar el inicio de sesión. Verifica tu conexión.');
     } finally {
       setLoading(false);
     }
@@ -198,7 +154,6 @@ export const LoginPage: React.FC = () => {
       });
       setResetSent(true);
     } catch {
-      // Mostrar éxito de forma segura siempre
       setResetSent(true);
     } finally {
       setResetLoading(false);
@@ -206,232 +161,324 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background visual accents */}
-      <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-sky-600/10 rounded-full blur-3xl pointer-events-none"></div>
-      <div className="absolute bottom-1/4 right-1/3 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div className="min-h-screen w-full relative flex items-center justify-center p-4 sm:p-6 overflow-hidden selection:bg-neutral-900 selection:text-white">
+      {/* ========================================================================= */}
+      {/* FONDO DE VIDEO ANIMADO (13495-248644905.mp4)                              */}
+      {/* ========================================================================= */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="absolute inset-0 w-full h-full object-cover scale-105 pointer-events-none transition-transform duration-1000"
+      >
+        <source src="/videos/login-bg.mp4" type="video/mp4" />
+      </video>
 
-      <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl shadow-2xl p-6 sm:p-8 backdrop-blur-sm z-10">
-        {/* Brand */}
-        <div className="flex flex-col items-center mb-6">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-sky-600 via-cyan-500 to-sky-400 flex items-center justify-center text-white shadow-xl shadow-sky-500/20 mb-3">
-            <BadgeDollarSign className="w-7 h-7" />
-          </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-1.5">
-            SalesIA <span className="text-xs px-2 py-0.5 rounded bg-sky-950 text-sky-400 border border-sky-800/60 font-semibold tracking-wider">Enterprise</span>
-          </h1>
-          <p className="text-xs text-slate-400 mt-1">Autenticación Empresarial & Acceso por Roles</p>
-        </div>
+      {/* Overlay oscuro y de cristal minimalista para legibilidad y elegancia */}
+      <div className="absolute inset-0 bg-neutral-950/60 backdrop-blur-xs pointer-events-none" />
+      <div className="absolute inset-0 bg-radial from-transparent via-black/40 to-black/80 pointer-events-none" />
 
-        {/* Indicador de 2 Pasos */}
-        <div className="flex items-center justify-center gap-2 mb-6">
-          <div className={`flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full ${
-            step === 1 ? 'bg-sky-500/20 text-sky-400 border border-sky-500/40' : 'bg-slate-800 text-slate-400'
-          }`}>
-            <span>1</span>
-            <span>Correo</span>
-          </div>
-          <div className="w-6 h-0.5 bg-slate-800"></div>
-          <div className={`flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full ${
-            step === 2 ? 'bg-sky-500/20 text-sky-400 border border-sky-500/40' : 'bg-slate-800 text-slate-400'
-          }`}>
-            <span>2</span>
-            <span>Contraseña</span>
-          </div>
-        </div>
-
-        {error && (
-          <div className="mb-6 p-3.5 rounded-lg bg-red-950/60 border border-red-800/80 text-red-300 text-xs flex items-center gap-2.5 animate-in fade-in">
-            <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {/* -------------------- FORMULARIO PASO 1 -------------------- */}
-        {step === 1 && (
-          <form onSubmit={handleStep1Submit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
-                Correo Electrónico
-              </label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                <input
-                  type="email"
-                  required
-                  autoFocus
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-colors"
-                  placeholder="colaborador@empresa.com"
-                />
-              </div>
+      {/* ========================================================================= */}
+      {/* TARJETA MINIMALISTA DE INICIO DE SESIÓN                                   */}
+      {/* ========================================================================= */}
+      <div className="w-full max-w-md relative z-10 space-y-4 animate-in fade-in zoom-in-95 duration-300">
+        <div className="bg-white/95 backdrop-blur-2xl border border-white/60 rounded-3xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] p-7 sm:p-9 transition-all">
+          {/* Identidad / Logotipo */}
+          <div className="flex flex-col items-center text-center mb-6">
+            <div className="w-12 h-12 rounded-2xl bg-neutral-900 text-white flex items-center justify-center shadow-lg shadow-neutral-900/30 mb-3.5 transition-transform hover:scale-105">
+              <Building2 className="w-6 h-6 text-neutral-100" />
             </div>
+            <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">
+              SalesIA <span className="font-light text-neutral-500">Enterprise</span>
+            </h1>
+            <p className="text-xs text-neutral-500 mt-1">
+              Plataforma de Analítica & Gestión Comercial
+            </p>
+          </div>
 
-            <button
-              type="submit"
-              disabled={loading || !email}
-              className="w-full mt-2 bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 text-white font-medium py-2.5 rounded-lg text-xs shadow-lg shadow-sky-600/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {loading ? (
-                <span>Validando...</span>
-              ) : (
-                <>
-                  <span>Continuar</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </form>
-        )}
-
-        {/* -------------------- FORMULARIO PASO 2 -------------------- */}
-        {step === 2 && (
-          <form onSubmit={handleStep2Submit} className="space-y-4">
-            {/* Visualización de correo con opción de cambio */}
-            <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs">
-              <div className="flex items-center gap-2 overflow-hidden">
-                <Mail className="w-4 h-4 text-sky-400 shrink-0" />
-                <span className="text-slate-300 font-medium truncate">{email}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => { setStep(1); setError(null); }}
-                className="text-[11px] text-sky-400 hover:text-sky-300 font-medium shrink-0 ml-2"
-              >
-                Cambiar
-              </button>
+          {/* Indicador de pasos minimalista */}
+          <div className="flex items-center justify-center gap-2 mb-6">
+            <div className={`flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-full transition-all ${
+              step === 1 ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600'
+            }`}>
+              <span>1</span>
+              <span>Correo</span>
             </div>
+            <div className="w-6 h-0.5 bg-neutral-200"></div>
+            <div className={`flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-full transition-all ${
+              step === 2 ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-400'
+            }`}>
+              <span>2</span>
+              <span>Contraseña</span>
+            </div>
+          </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-                  Contraseña
+          {/* Alerta general de error */}
+          {error && (
+            <div className="mb-4 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-center gap-2.5 animate-in fade-in">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+              <span className="flex-1 leading-relaxed">{error}</span>
+            </div>
+          )}
+
+          {/* -------------------- PASO 1: FORMULARIO DE CORREO -------------------- */}
+          {step === 1 && (
+            <form onSubmit={handleVerifyEmail} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-neutral-700 tracking-wide">
+                  Correo Electrónico Corporativo
                 </label>
-                <button
-                  type="button"
-                  onClick={() => { setResetEmail(email); setShowResetModal(true); }}
-                  className="text-[11px] text-sky-400 hover:text-sky-300 font-medium"
-                >
-                  ¿Olvidaste tu contraseña?
-                </button>
-              </div>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  autoFocus
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-10 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-colors"
-                  placeholder="••••••••"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-3 text-slate-400 hover:text-slate-200"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5 pointer-events-none" />
+                  <input
+                    type="email"
+                    required
+                    autoFocus
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setEmailNotRegistered(false);
+                      setError(null);
+                    }}
+                    className={`w-full bg-neutral-50/90 border rounded-xl pl-10 pr-4 py-2.5 text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:bg-white transition-all ${
+                      emailNotRegistered
+                        ? 'border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100'
+                        : 'border-neutral-300 focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900/10'
+                    }`}
+                    placeholder="usuario@empresa.com"
+                  />
+                </div>
 
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => { setStep(1); setError(null); }}
-                className="w-1/3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium py-2.5 rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Atrás</span>
-              </button>
+                {/* ALERTA PEQUEÑA ABAJO DEL CORREO SI NO EXISTE EN LA BD */}
+                {emailNotRegistered && (
+                  <div className="p-2.5 rounded-xl bg-red-50 border border-red-200/80 text-red-700 text-xs flex items-start gap-2 mt-1.5 animate-in fade-in slide-in-from-top-1">
+                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                    <div className="leading-snug">
+                      <span>Este correo aún no está registrado, por favor crearse una cuenta.</span>
+                      <div className="mt-1">
+                        <Link
+                          to="/registro"
+                          className="font-bold underline text-red-800 hover:text-red-900 inline-flex items-center gap-1"
+                        >
+                          <UserPlus className="w-3 h-3" />
+                          <span>Crear una cuenta aquí</span>
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <button
                 type="submit"
-                disabled={loading || !password}
-                className="w-2/3 bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 text-white font-medium py-2.5 rounded-lg text-xs shadow-lg shadow-sky-600/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                disabled={loading || !email.trim()}
+                className="w-full mt-2 bg-neutral-900 hover:bg-black text-white font-medium py-3 px-4 rounded-xl text-sm shadow-md shadow-neutral-900/20 transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.01] active:scale-[0.99]"
               >
                 {loading ? (
-                  <span>Verificando...</span>
+                  <>
+                    <span className="w-4 h-4 border-2 border-neutral-400 border-t-white rounded-full animate-spin" />
+                    <span>Verificando correo...</span>
+                  </>
                 ) : (
                   <>
-                    <span>Iniciar Sesión</span>
-                    <ShieldCheck className="w-4 h-4" />
+                    <span>Continuar</span>
+                    <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </button>
-            </div>
-          </form>
-        )}
+            </form>
+          )}
 
-        {/* Enlace para Crear Cuenta */}
-        <div className="mt-6 pt-5 border-t border-slate-800/80 flex flex-col items-center gap-2">
-          <p className="text-xs text-slate-400">
-            ¿No tienes acceso empresarial?{' '}
-            <Link to="/registro" className="text-sky-400 hover:text-sky-300 font-semibold">
-              Crear cuenta
-            </Link>
-          </p>
-          <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mt-1">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Seguridad criptográfica respaldada por Supabase Auth</span>
+          {/* -------------------- PASO 2: FORMULARIO DE CONTRASEÑA -------------------- */}
+          {step === 2 && (
+            <form onSubmit={handleLoginSubmit} className="space-y-4 animate-in fade-in duration-200">
+              {/* Badge de correo validado con opción de cambio */}
+              <div className="flex items-center justify-between p-2.5 px-3.5 rounded-xl bg-neutral-100 border border-neutral-200/80 text-xs">
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <Mail className="w-3.5 h-3.5 text-neutral-600 shrink-0" />
+                  <span className="text-neutral-800 font-medium truncate">{email}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep(1);
+                    setError(null);
+                    setPassword('');
+                  }}
+                  className="text-[11px] text-neutral-900 hover:underline font-semibold shrink-0 ml-2 cursor-pointer"
+                >
+                  Cambiar
+                </button>
+              </div>
+
+              {/* Input Contraseña */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-neutral-700 tracking-wide">
+                    Contraseña
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResetEmail(email);
+                      setShowResetModal(true);
+                    }}
+                    className="text-xs text-neutral-500 hover:text-neutral-900 transition-colors cursor-pointer"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                </div>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-neutral-400 absolute left-3.5 top-3.5 pointer-events-none" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    autoFocus
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-neutral-50/90 border border-neutral-300 rounded-xl pl-10 pr-11 py-2.5 text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:bg-white focus:border-neutral-900 focus:ring-2 focus:ring-neutral-900/10 transition-all"
+                    placeholder="••••••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-3 text-neutral-400 hover:text-neutral-700 transition-colors p-0.5 cursor-pointer"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Checkbox Recordar */}
+              <div className="flex items-center justify-between pt-0.5">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-0 focus:ring-offset-0 accent-neutral-900 cursor-pointer"
+                  />
+                  <span className="text-xs text-neutral-600">Mantener sesión iniciada</span>
+                </label>
+              </div>
+
+              {/* Botones de Navegación del Paso 2 */}
+              <div className="flex gap-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep(1);
+                    setError(null);
+                    setPassword('');
+                  }}
+                  className="w-1/3 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-medium py-3 rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Atrás</span>
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading || !password}
+                  className="w-2/3 bg-neutral-900 hover:bg-black text-white font-medium py-3 px-4 rounded-xl text-sm shadow-md shadow-neutral-900/20 transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 hover:scale-[1.01] active:scale-[0.99]"
+                >
+                  {loading ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-neutral-400 border-t-white rounded-full animate-spin" />
+                      <span>Ingresando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Iniciar Sesión</span>
+                      <ShieldCheck className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Enlace de Solicitud de Registro */}
+          <div className="pt-6 mt-6 border-t border-neutral-100 text-center">
+            <p className="text-xs text-neutral-500">
+              ¿No tienes una cuenta de acceso?{' '}
+              <Link to="/registro" className="text-neutral-900 hover:underline font-semibold transition-colors">
+                Solicitar registro
+              </Link>
+            </p>
+          </div>
+        </div>
+
+        {/* Card Informativa Pequeña Minimalista */}
+        <div className="bg-black/60 backdrop-blur-md border border-white/10 rounded-2xl p-3.5 px-4 shadow-xl flex items-center gap-3 text-xs text-white/80">
+          <div className="w-7 h-7 rounded-lg bg-white/10 border border-white/20 flex items-center justify-center text-white shrink-0">
+            <Info className="w-4 h-4" />
+          </div>
+          <div className="leading-snug">
+            <span className="font-semibold text-white">Acceso Seguro:</span> Las funciones y datos del sistema se habilitan automáticamente según los roles asignados a tu usuario.
           </div>
         </div>
       </div>
 
-      {/* -------------------- MODAL RECUPERACIÓN DE CONTRASEÑA -------------------- */}
+      {/* ========================================================================= */}
+      {/* MODAL RECUPERACIÓN DE CONTRASEÑA                                         */}
+      {/* ========================================================================= */}
       {showResetModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-2xl animate-in zoom-in-95">
-            <h2 className="text-base font-bold text-white mb-1.5">Recuperación de Contraseña</h2>
-            <p className="text-xs text-slate-400 mb-4">
-              Ingresa tu correo empresarial para recibir un enlace seguro de restablecimiento de contraseña vía Supabase.
-            </p>
+        <div className="fixed inset-0 bg-neutral-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div className="w-full max-w-sm bg-white border border-neutral-200 rounded-3xl p-6 sm:p-7 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="space-y-1">
+              <h2 className="text-base font-bold text-neutral-900">Restablecer Contraseña</h2>
+              <p className="text-xs text-neutral-500 leading-relaxed">
+                Ingresa tu correo para recibir un enlace seguro de restablecimiento de contraseña.
+              </p>
+            </div>
 
             {resetSent ? (
               <div className="text-center py-4 space-y-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-400 flex items-center justify-center mx-auto">
-                  <CheckCircle2 className="w-6 h-6" />
+                <div className="w-10 h-10 rounded-full bg-neutral-100 border border-neutral-200 text-neutral-900 flex items-center justify-center mx-auto">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                 </div>
-                <p className="text-xs text-slate-300 font-medium">
-                  Si la cuenta existe, recibirás instrucciones para restablecer tu contraseña en breve.
+                <p className="text-xs text-neutral-700 font-medium">
+                  Si la cuenta existe, recibirás un correo con las instrucciones en breve.
                 </p>
                 <button
+                  type="button"
                   onClick={() => { setShowResetModal(false); setResetSent(false); }}
-                  className="w-full mt-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium py-2 rounded-lg"
+                  className="w-full mt-2 bg-neutral-900 hover:bg-black text-white text-xs font-medium py-2.5 rounded-xl transition-colors cursor-pointer"
                 >
                   Cerrar
                 </button>
               </div>
             ) : (
-              <form onSubmit={handlePasswordReset} className="space-y-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-300 uppercase mb-1">
-                    Correo
+              <form onSubmit={handlePasswordReset} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-neutral-700">
+                    Correo Electrónico
                   </label>
                   <input
                     type="email"
                     required
                     value={resetEmail}
                     onChange={(e) => setResetEmail(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
-                    placeholder="colaborador@empresa.com"
+                    className="w-full bg-neutral-50 border border-neutral-300 rounded-xl px-3.5 py-2.5 text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-neutral-900 transition-colors"
+                    placeholder="usuario@empresa.com"
                   />
                 </div>
-                <div className="flex gap-2 pt-2">
+                <div className="flex gap-2.5 pt-1">
                   <button
                     type="button"
                     onClick={() => setShowResetModal(false)}
-                    className="w-1/2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs py-2 rounded-lg"
+                    className="w-1/2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-medium py-2.5 rounded-xl transition-colors cursor-pointer"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={resetLoading || !resetEmail}
-                    className="w-1/2 bg-sky-600 hover:bg-sky-500 text-white text-xs py-2 rounded-lg disabled:opacity-50"
+                    className="w-1/2 bg-neutral-900 hover:bg-black text-white text-xs font-semibold py-2.5 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
                   >
-                    {resetLoading ? 'Enviando...' : 'Enviar Enlace'}
+                    {resetLoading ? 'Enviando...' : 'Enviar enlace'}
                   </button>
                 </div>
               </form>
@@ -444,3 +491,6 @@ export const LoginPage: React.FC = () => {
 };
 
 export default LoginPage;
+
+
+

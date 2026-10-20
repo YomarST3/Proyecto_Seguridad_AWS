@@ -30,33 +30,49 @@ const queryClient = new QueryClient({
   },
 });
 
-// Simple Auth Guard
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+
+// Protected Route Guard with full session check & loading state
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const token = localStorage.getItem('salesia_token');
-  if (!token) {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen w-full bg-slate-950 flex flex-col items-center justify-center p-4">
+        <div className="w-10 h-10 border-4 border-sky-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-xs font-medium text-slate-400 tracking-wide uppercase">
+          Verificando sesión empresarial...
+        </p>
+      </div>
+    );
+  }
+
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
+
   return <>{children}</>;
 };
 
 export const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/registro" element={<RegisterPage />} />
-          <Route path="/verificar-correo-pendiente" element={<EmailVerificationPendingPage />} />
-          <Route path="/pendiente-aprobacion" element={<AccessRequestPendingPage />} />
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/registro" element={<RegisterPage />} />
+            <Route path="/verificar-correo-pendiente" element={<EmailVerificationPendingPage />} />
+            <Route path="/pendiente-aprobacion" element={<AccessRequestPendingPage />} />
 
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <AppLayout />
-              </ProtectedRoute>
-            }
-          >
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <AppLayout />
+                </ProtectedRoute>
+              }
+            >
 
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />
@@ -77,6 +93,7 @@ export const App: React.FC = () => {
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
+      </AuthProvider>
     </QueryClientProvider>
   );
 };

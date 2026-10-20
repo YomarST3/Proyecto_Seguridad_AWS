@@ -21,10 +21,13 @@ import {
   X
 } from 'lucide-react';
 
+import { useAuth } from '../contexts/AuthContext';
+
 export const AppLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { user: authUser, signOut } = useAuth();
 
   // Close mobile menu automatically on route change
   useEffect(() => {
@@ -52,14 +55,13 @@ export const AppLayout: React.FC = () => {
     };
   }, [mobileMenuOpen]);
 
-  const storedUser = localStorage.getItem('salesia_user');
-  const user = storedUser ? JSON.parse(storedUser) : {
+  const user = authUser || (localStorage.getItem('salesia_user') ? JSON.parse(localStorage.getItem('salesia_user')!) : {
     full_name: 'Administrador General',
     role: 'ADMINISTRADOR',
     roles: ['ADMINISTRADOR'],
     permisos: ['empresas:configurar'],
     email: 'admin@salesia.com'
-  };
+  });
 
   const userPermisos: string[] = user.permisos || [];
   const userRoles: string[] = user.roles || (user.role ? [user.role] : []);
@@ -70,9 +72,8 @@ export const AppLayout: React.FC = () => {
     return userPermisos.includes(codigo);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('salesia_token');
-    localStorage.removeItem('salesia_user');
+  const handleLogout = async () => {
+    await signOut();
     navigate('/login');
   };
 
@@ -158,9 +159,8 @@ export const AppLayout: React.FC = () => {
         role="dialog"
         aria-modal="true"
         aria-label="Menú de navegación móvil"
-        className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] bg-slate-900 border-r border-slate-800 text-slate-300 flex flex-col select-none shadow-2xl transition-transform duration-300 ease-in-out lg:hidden ${
-          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] bg-slate-900 border-r border-slate-800 text-slate-300 flex flex-col select-none shadow-2xl transition-transform duration-300 ease-in-out lg:hidden ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
       >
         {/* Brand Header with Close Button */}
         <div className="h-16 flex items-center justify-between px-4 sm:px-6 border-b border-slate-800 bg-slate-950/70 shrink-0">
@@ -200,10 +200,9 @@ export const AppLayout: React.FC = () => {
                       to={item.path}
                       onClick={() => setMobileMenuOpen(false)}
                       className={({ isActive }) =>
-                        `flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-all duration-150 ${
-                          isActive
-                            ? 'bg-sky-600/90 text-white shadow-sm shadow-sky-600/30 font-semibold'
-                            : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                        `flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium transition-all duration-150 ${isActive
+                          ? 'bg-sky-600/90 text-white shadow-sm shadow-sky-600/30 font-semibold'
+                          : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                         }`
                       }
                     >
@@ -275,10 +274,9 @@ export const AppLayout: React.FC = () => {
                       key={item.path}
                       to={item.path}
                       className={({ isActive }) =>
-                        `flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 ${
-                          isActive
-                            ? 'bg-sky-600/90 text-white shadow-sm shadow-sky-600/30 font-semibold'
-                            : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                        `flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 ${isActive
+                          ? 'bg-sky-600/90 text-white shadow-sm shadow-sky-600/30 font-semibold'
+                          : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                         }`
                       }
                     >
@@ -343,7 +341,7 @@ export const AppLayout: React.FC = () => {
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <div className="flex items-center gap-1.5 sm:gap-2 border border-slate-200 px-2 sm:px-3 py-1.5 rounded-lg bg-slate-50 text-[11px] sm:text-xs text-slate-600">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></div>
-              <span className="hidden sm:inline">PostgreSQL 18 Activo</span>
+              <span className="hidden sm:inline">Base de datos Supabase Activa</span>
               <span className="sm:hidden font-medium">DB Activa</span>
             </div>
             <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 border border-slate-200">

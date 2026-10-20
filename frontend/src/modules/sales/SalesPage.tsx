@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { BadgeDollarSign, Plus, Eye, Ban, Search, FileText, X } from 'lucide-react';
-import api from '../../services/api';
+import { getSales, getCustomers, getProducts, getPaymentMethods, getOrders, createSale, annulSale } from '../../services/mockDataService';
 import { Sale, Customer, Product, PaymentMethod, Order } from '../../types';
 
 export const SalesPage: React.FC = () => {
@@ -24,27 +24,27 @@ export const SalesPage: React.FC = () => {
   // Queries
   const { data: sales = [], isLoading } = useQuery<Sale[]>({
     queryKey: ['sales'],
-    queryFn: async () => (await api.get('/sales')).data
+    queryFn: async () => await getSales()
   });
 
   const { data: customers = [] } = useQuery<Customer[]>({
     queryKey: ['customers'],
-    queryFn: async () => (await api.get('/customers')).data
+    queryFn: async () => await getCustomers()
   });
 
   const { data: products = [] } = useQuery<Product[]>({
     queryKey: ['products'],
-    queryFn: async () => (await api.get('/products')).data
+    queryFn: async () => await getProducts()
   });
 
   const { data: paymentMethods = [] } = useQuery<PaymentMethod[]>({
     queryKey: ['paymentMethods'],
-    queryFn: async () => (await api.get('/payments/methods')).data
+    queryFn: async () => await getPaymentMethods()
   });
 
   const { data: confirmedOrders = [] } = useQuery<Order[]>({
     queryKey: ['confirmedOrders'],
-    queryFn: async () => (await api.get('/orders', { params: { status: 'CONFIRMED' } })).data
+    queryFn: async () => await getOrders({ status: 'CONFIRMED' })
   });
 
   // Mutations
@@ -65,7 +65,7 @@ export const SalesPage: React.FC = () => {
         paid_amount: payDirectly ? estimatedTotal : 0,
         payment_reference: payDirectly ? 'PAGO_CAJA_VENTA' : undefined
       };
-      return (await api.post('/sales', payload)).data;
+      return await createSale(payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales'] });
@@ -78,7 +78,7 @@ export const SalesPage: React.FC = () => {
   const annulMutation = useMutation({
     mutationFn: async () => {
       if (!annulSaleId) return;
-      return (await api.post(`/sales/${annulSaleId}/annul`, { reason: annulReason })).data;
+      return await annulSale(annulSaleId, annulReason);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales'] });

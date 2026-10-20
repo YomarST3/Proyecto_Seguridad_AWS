@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Users, Plus, Search, Eye, Building2, User, Phone, Mail, MapPin, DollarSign, ShoppingBag, X } from 'lucide-react';
-import api from '../../services/api';
+import { getCustomers, getCustomerDetail, createCustomer } from '../../services/mockDataService';
 import { Customer } from '../../types';
 
 export const CustomersPage: React.FC = () => {
@@ -25,8 +25,7 @@ export const CustomersPage: React.FC = () => {
   const { data: customers = [], isLoading } = useQuery<Customer[]>({
     queryKey: ['customers', searchTerm],
     queryFn: async () => {
-      const res = await api.get('/customers', { params: { search: searchTerm } });
-      return res.data;
+      return await getCustomers({ search: searchTerm });
     }
   });
 
@@ -34,8 +33,9 @@ export const CustomersPage: React.FC = () => {
   const { data: customerDetail, isLoading: isLoadingDetail } = useQuery<Customer>({
     queryKey: ['customerDetail', selectedCustomerId],
     queryFn: async () => {
-      const res = await api.get(`/customers/${selectedCustomerId}`);
-      return res.data;
+      if (!selectedCustomerId) return undefined as any;
+      const res = await getCustomerDetail(selectedCustomerId);
+      return res as Customer;
     },
     enabled: selectedCustomerId !== null
   });
@@ -43,8 +43,7 @@ export const CustomersPage: React.FC = () => {
   // Create mutation
   const createMutation = useMutation({
     mutationFn: async (payload: typeof formData) => {
-      const res = await api.post('/customers', payload);
-      return res.data;
+      return await createCustomer(payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });

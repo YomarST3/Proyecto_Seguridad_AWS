@@ -18,6 +18,46 @@ export const ProbabilityPage: React.FC = () => {
   const [rvSample, setRvSample] = useState('1, 2, 1, 3, 2, 2, 4, 1, 2, 3, 1, 2, 5');
   const [rvResult, setRvResult] = useState<any>(null);
 
+  // Helper de cálculo local para contingencia si Render está en frío
+  const calculateLocalBayes = (pA: number, pBgA: number, pB: number, eA: string, eB: string) => {
+    if (pA < 0 || pA > 1 || pBgA < 0 || pBgA > 1 || pB <= 0 || pB > 1) {
+      throw new Error('Las probabilidades deben situarse entre 0 y 1, y P(B) debe ser > 0.');
+    }
+    const num = pBgA * pA;
+    if (num > pB + 1e-6) {
+      throw new Error(`Incoherencia probabilística: P(B|A)*P(A) (${num.toFixed(4)}) supera a P(B) (${pB.toFixed(4)}).`);
+    }
+    const post = Math.min(1, Math.max(0, num / pB));
+    return {
+      posterior_probability: Math.round(post * 10000) / 10000,
+      posterior_percentage: Math.round(post * 10000) / 100,
+      interpretation: `La probabilidad a posteriori P(${eA} | ${eB}) es de ${(post * 100).toFixed(2)}%.`,
+      algebraic_steps: `1. Probabilidad a priori: P(${eA}) = ${pA.toFixed(4)}\n2. Verosimilitud: P(${eB} | ${eA}) = ${pBgA.toFixed(4)}\n3. Probabilidad marginal: P(${eB}) = ${pB.toFixed(4)}\n4. Numerador: P(${eB}|${eA}) × P(${eA}) = ${num.toFixed(4)}\n5. Teorema de Bayes: P(${eA}|${eB}) = ${num.toFixed(4)} / ${pB.toFixed(4)} = ${post.toFixed(4)}`
+    };
+  };
+
+  const calculateLocalRV = (obs: number[], varName: string, varType: string) => {
+    const counts: Record<number, number> = {};
+    obs.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
+    const n = obs.length;
+    const sortedKeys = Object.keys(counts).map(Number).sort((a, b) => a - b);
+    let expected = 0;
+    const distribution = sortedKeys.map(k => {
+      const prob = counts[k] / n;
+      expected += k * prob;
+      return { value: k, frequency: counts[k], probability: Math.round(prob * 10000) / 10000 };
+    });
+    return {
+      variable_name: varName,
+      variable_type: varType,
+      total_observations: n,
+      support_size: sortedKeys.length,
+      distribution,
+      expected_value: Math.round(expected * 100) / 100,
+      explanation: `Valor esperado E[X] = ∑ x · P(x) = ${expected.toFixed(2)}.`
+    };
+  };
+
   // Bayes mutation
   const bayesMutation = useMutation({
     mutationFn: async () => {
@@ -28,14 +68,22 @@ export const ProbabilityPage: React.FC = () => {
         likelihood_b_given_a: likelihoodBgivenA,
         marginal_prob_b: marginalB
       };
-      return (await api.post('/probability/bayes', payload)).data;
+      try {
+        return (await api.post('/probability/bayes', payload)).data;
+      } catch (err: any) {
+        if (err.response?.data?.detail) {
+          throw err;
+        }
+        // Fallback contingencia si Render está inactivo
+        return calculateLocalBayes(priorA, likelihoodBgivenA, marginalB, eventAName, eventBName);
+      }
     },
     onSuccess: (data) => {
       setBayesResult(data);
       setBayesError(null);
     },
     onError: (err: any) => {
-      setBayesError(err.response?.data?.detail || 'Error en el cálculo bayesiano.');
+      setBayesError(err.response?.data?.detail || err.message || 'Error en el cálculo bayesiano.');
       setBayesResult(null);
     }
   });
@@ -53,7 +101,14 @@ export const ProbabilityPage: React.FC = () => {
         variable_name: 'Artículos por Venta',
         variable_type: 'QUANTITATIVE_DISCRETE'
       };
-      return (await api.post('/random-variables/analyze', payload)).data;
+      try {
+        return (await api.post('/random-variables/analyze', payload)).data;
+      } catch (err: any) {
+        if (err.response?.data?.detail) {
+          throw err;
+        }
+        return calculateLocalRV(numbers, payload.variable_name, payload.variable_type);
+      }
     },
     onSuccess: (data) => {
       setRvResult(data);

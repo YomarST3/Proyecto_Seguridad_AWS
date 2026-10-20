@@ -21,13 +21,8 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
-      localStorage.removeItem('salesia_token');
-      localStorage.removeItem('salesia_user');
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
-      }
-    }
+    // No eliminar token ni redirigir forzosamente: FastAPI se usa para cálculos estadísticos
+    // y la autenticación es gestionada directamente por Supabase Auth.
     return Promise.reject(error);
   }
 );

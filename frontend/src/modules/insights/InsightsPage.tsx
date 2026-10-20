@@ -1,13 +1,13 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Sparkles, AlertTriangle, AlertCircle, Info, CheckCircle2, ArrowRight } from 'lucide-react';
-import api from '../../services/api';
+import { getInsights } from '../../services/mockDataService';
 import { Insight } from '../../types';
 
 export const InsightsPage: React.FC = () => {
   const { data: insights = [], isLoading } = useQuery<Insight[]>({
     queryKey: ['insights'],
-    queryFn: async () => (await api.get('/insights')).data
+    queryFn: async () => await getInsights()
   });
 
   return (

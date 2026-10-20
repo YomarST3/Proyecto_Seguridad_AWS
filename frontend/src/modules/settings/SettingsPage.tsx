@@ -24,7 +24,16 @@ import {
   Calendar,
   Lock
 } from 'lucide-react';
-import api from '../../services/api';
+import {
+  getSettingsUsers,
+  getSettingsSolicitudes,
+  getSettingsRoles,
+  getSettingsPermisos,
+  approveSolicitud,
+  rejectSolicitud,
+  updateUserStatus,
+  assignUserRoles
+} from '../../services/mockDataService';
 import { SolicitudAcceso, UsuarioEmpresarial, RolEmpresarial, PermisoItem } from '../../types';
 
 interface RolItem {
@@ -87,14 +96,10 @@ export const SettingsPage: React.FC = () => {
     setCargandoUsuarios(true);
     setMensajeError(null);
     try {
-      const res = await api.get('/administracion/usuarios');
-      setUsuarios(res.data);
+      const data = await getSettingsUsers();
+      setUsuarios(data as UsuarioEmpresarial[]);
     } catch (err: any) {
-      if (err.response?.status === 403) {
-        setMensajeError('Se requiere el permiso "usuarios:administrar" para listar los usuarios.');
-      } else {
-        setMensajeError(err.response?.data?.detail || 'Error al cargar usuarios empresariales.');
-      }
+      setMensajeError('Error al cargar usuarios empresariales.');
     } finally {
       setCargandoUsuarios(false);
     }
@@ -104,19 +109,15 @@ export const SettingsPage: React.FC = () => {
     setCargandoSolicitudes(true);
     setMensajeError(null);
     try {
-      const response = await api.get('/auth/solicitudes');
-      setSolicitudes(response.data);
+      const data = await getSettingsSolicitudes();
+      setSolicitudes(data as SolicitudAcceso[]);
       const initialRoles: Record<number, number[]> = {};
-      response.data.forEach((sol: SolicitudAcceso) => {
+      data.forEach((sol: any) => {
         initialRoles[sol.id] = [3]; // Default VENDEDOR
       });
       setRolesSeleccionados(initialRoles);
     } catch (err: any) {
-      if (err.response?.status === 403) {
-        setMensajeError('Se requiere el permiso "usuarios:administrar" para gestionar solicitudes.');
-      } else {
-        setMensajeError(err.response?.data?.detail || 'Error al conectar con el servidor.');
-      }
+      setMensajeError('Error al cargar solicitudes de acceso.');
     } finally {
       setCargandoSolicitudes(false);
     }
@@ -126,11 +127,11 @@ export const SettingsPage: React.FC = () => {
     setCargandoRbac(true);
     try {
       const [resRoles, resPermisos] = await Promise.all([
-        api.get('/administracion/roles').catch(() => ({ data: [] })),
-        api.get('/administracion/permisos').catch(() => ({ data: [] }))
+        getSettingsRoles(),
+        getSettingsPermisos()
       ]);
-      setRolesCatalogo(resRoles.data);
-      setPermisosCatalogo(resPermisos.data);
+      setRolesCatalogo(resRoles as RolEmpresarial[]);
+      setPermisosCatalogo(resPermisos as PermisoItem[]);
     } catch (err: any) {
       console.error('Error cargando catalogo RBAC:', err);
     } finally {
@@ -176,14 +177,12 @@ export const SettingsPage: React.FC = () => {
     setMensajeError(null);
 
     try {
-      const res = await api.post(`/auth/solicitudes/${solicitudId}/aprobar`, {
-        roles_ids: rolesIds
-      });
-      setMensajeExito(res.data.mensaje || `Solicitud #${solicitudId} aprobada correctamente.`);
+      const res = await approveSolicitud(solicitudId, rolesIds);
+      setMensajeExito(res.mensaje || `Solicitud #${solicitudId} aprobada correctamente.`);
       await cargarSolicitudes();
       await cargarUsuarios();
     } catch (err: any) {
-      setMensajeError(err.response?.data?.detail || 'Error al aprobar solicitud de acceso.');
+      setMensajeError('Error al aprobar solicitud de acceso.');
     } finally {
       setProcesandoId(null);
     }
@@ -199,13 +198,11 @@ export const SettingsPage: React.FC = () => {
     setMensajeError(null);
 
     try {
-      const res = await api.post(`/auth/solicitudes/${solicitudId}/rechazar`, {
-        motivo: 'Solicitud declinada por el administrador corporativo.'
-      });
-      setMensajeExito(res.data.mensaje || `Solicitud #${solicitudId} rechazada.`);
+      const res = await rejectSolicitud(solicitudId);
+      setMensajeExito(res.mensaje || `Solicitud #${solicitudId} rechazada.`);
       await cargarSolicitudes();
     } catch (err: any) {
-      setMensajeError(err.response?.data?.detail || 'Error al rechazar solicitud.');
+      setMensajeError('Error al rechazar solicitud.');
     } finally {
       setProcesandoId(null);
     }
@@ -227,13 +224,11 @@ export const SettingsPage: React.FC = () => {
     setMensajeError(null);
 
     try {
-      await api.put(`/administracion/usuarios/${u.id}`, {
-        activo: !u.activo
-      });
-      setMensajeExito(`Usuario ${u.nombre_completo} ${!u.activo ? 'activado' : 'desactivado'} con éxito.`);
+      const res = await updateUserStatus(u.id, !u.activo);
+      setMensajeExito(res.mensaje || `Usuario ${u.nombre_completo} ${!u.activo ? 'activado' : 'desactivado'} con éxito.`);
       await cargarUsuarios();
     } catch (err: any) {
-      setMensajeError(err.response?.data?.detail || 'No se pudo actualizar el estado del usuario.');
+      setMensajeError('No se pudo actualizar el estado del usuario.');
     } finally {
       setProcesandoId(null);
     }
@@ -272,14 +267,12 @@ export const SettingsPage: React.FC = () => {
     setMensajeExito(null);
 
     try {
-      await api.post(`/administracion/usuarios/${usuarioEditando.id}/roles`, {
-        roles_ids: rolesUsuarioEditando
-      });
-      setMensajeExito(`Roles actualizados correctamente para ${usuarioEditando.nombre_completo}.`);
+      const res = await assignUserRoles(usuarioEditando.id, rolesUsuarioEditando);
+      setMensajeExito(res.mensaje || `Roles actualizados correctamente para ${usuarioEditando.nombre_completo}.`);
       setUsuarioEditando(null);
       await cargarUsuarios();
     } catch (err: any) {
-      setMensajeError(err.response?.data?.detail || 'Error al actualizar roles.');
+      setMensajeError('Error al actualizar roles.');
     } finally {
       setGuardandoRoles(false);
     }

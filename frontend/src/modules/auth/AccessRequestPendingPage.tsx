@@ -1,40 +1,26 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, ShieldCheck, RefreshCw, LogOut, Building2 } from 'lucide-react';
-import api from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 export const AccessRequestPendingPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user, refreshProfile, signOut } = useAuth();
   const pendingEmail = localStorage.getItem('salesia_pending_email') || 'tu correo registrado';
-  const token = localStorage.getItem('salesia_token');
 
   const [checking, setChecking] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const checkStatus = async () => {
-    if (!token) {
-      navigate('/login');
-      return;
-    }
-
     setChecking(true);
     setMessage(null);
 
     try {
-      const res = await api.post('/auth/sesion', { access_token: token });
-      if (res.data.estado === 'ACTIVO') {
-        localStorage.setItem('salesia_user', JSON.stringify({
-          id: res.data.usuario.id,
-          email: res.data.usuario.correo_electronico,
-          full_name: res.data.usuario.nombre_completo,
-          role: res.data.usuario.roles[0] || 'VENDEDOR',
-          roles: res.data.usuario.roles,
-          permisos: res.data.usuario.permisos,
-          company_id: res.data.usuario.empresa_id
-        }));
+      await refreshProfile();
+      if (user) {
         navigate('/dashboard');
       } else {
-        setMessage('Tu solicitud continúa en estado de revisión por la administración.');
+        setMessage('Tu solicitud continúa en proceso de validación corporativa.');
       }
     } catch {
       setMessage('Aún no se ha completado la aprobación de tu solicitud.');
@@ -43,68 +29,75 @@ export const AccessRequestPendingPage: React.FC = () => {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('salesia_token');
-    localStorage.removeItem('salesia_user');
-    localStorage.removeItem('salesia_pending_email');
+  const handleLogout = async () => {
+    await signOut();
     navigate('/login');
   };
 
   return (
-    <div className="min-h-screen w-full bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div className="min-h-screen w-full bg-zinc-950 text-zinc-100 flex items-center justify-center p-4 sm:p-6 relative selection:bg-zinc-800 selection:text-white">
+      {/* Background accents */}
+      <div 
+        className="absolute inset-0 opacity-[0.03] pointer-events-none"
+        style={{
+          backgroundImage: `linear-gradient(to right, #ffffff 1px, transparent 1px), linear-gradient(to bottom, #ffffff 1px, transparent 1px)`,
+          backgroundSize: '36px 36px'
+        }}
+      />
+      <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-zinc-800/15 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl shadow-2xl p-8 backdrop-blur-sm z-10 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-amber-950/80 border border-amber-800/80 text-amber-400 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-amber-900/30">
-          <Clock className="w-8 h-8 animate-pulse" />
+      <div className="w-full max-w-md bg-zinc-900/90 border border-zinc-800 rounded-2xl shadow-2xl p-7 sm:p-8 backdrop-blur-md z-10 text-center space-y-5">
+        <div className="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-200 flex items-center justify-center mx-auto shadow-md">
+          <Clock className="w-7 h-7 text-zinc-300 animate-pulse" />
         </div>
 
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-950/80 border border-amber-800/80 text-amber-400 text-xs font-semibold mb-3">
-          <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
-          <span>SOLICITUD EN REVISIÓN</span>
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs font-medium">
+          <span className="w-2 h-2 rounded-full bg-zinc-400 animate-ping" />
+          <span>Solicitud en Proceso</span>
         </div>
 
-        <h1 className="text-xl font-bold text-white tracking-tight mb-2">
-          Acceso Empresarial Pendiente
-        </h1>
+        <div className="space-y-1.5">
+          <h1 className="text-xl font-semibold text-white tracking-tight">
+            Acceso Empresarial Pendiente
+          </h1>
+          <p className="text-xs text-zinc-400 leading-relaxed">
+            La solicitud vinculada a <span className="text-zinc-200 font-mono font-medium">{pendingEmail}</span> está registrada.
+          </p>
+        </div>
 
-        <p className="text-xs text-slate-300 leading-relaxed mb-4">
-          La solicitud asociada a <span className="text-sky-400 font-mono font-medium">{pendingEmail}</span> está registrada en el sistema.
-        </p>
-
-        <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl text-left text-xs text-slate-400 space-y-2.5 mb-6">
-          <div className="flex items-center gap-2 text-slate-200 font-medium">
-            <Building2 className="w-4 h-4 text-sky-400 shrink-0" />
-            <span>SalesIA Tech Solutions S.A.C.</span>
+        <div className="p-4 bg-zinc-950 border border-zinc-800/80 rounded-xl text-left text-xs text-zinc-400 space-y-2.5">
+          <div className="flex items-center gap-2 text-zinc-200 font-medium">
+            <Building2 className="w-4 h-4 text-zinc-400 shrink-0" />
+            <span>SalesIA Enterprise Suite</span>
           </div>
           <p className="text-[11px] leading-relaxed">
-            Por estrictas políticas de seguridad corporativa y control de acceso (RBAC), ninguna cuenta nueva posee acceso a módulos de ventas, inventario o reportes hasta que un <strong>Administrador</strong> autorice la solicitud y te asigne tus roles correspondientes.
+            Bajo las políticas de control de acceso corporativo (RBAC), ninguna cuenta nueva posee acceso a módulos operacionales hasta que un <strong>Administrador</strong> valide la credencial y asigne los permisos pertinentes.
           </p>
-          <div className="flex items-center gap-1.5 text-[10px] text-slate-400 pt-1 border-t border-slate-800/80">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Protección contra elevación no autorizada de privilegios</span>
+          <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 pt-2 border-t border-zinc-900">
+            <ShieldCheck className="w-3.5 h-3.5 text-zinc-300" />
+            <span>Segregación estricta de funciones y roles comerciales</span>
           </div>
         </div>
 
         {message && (
-          <div className="mb-4 p-2.5 rounded-lg bg-slate-800/80 text-xs text-slate-300 animate-in fade-in">
+          <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-xs text-zinc-300 animate-in fade-in">
             {message}
           </div>
         )}
 
-        <div className="space-y-2">
+        <div className="space-y-2.5 pt-1">
           <button
             onClick={checkStatus}
             disabled={checking}
-            className="w-full bg-sky-600 hover:bg-sky-500 text-white font-medium py-2.5 rounded-lg text-xs shadow-lg shadow-sky-600/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full bg-zinc-100 hover:bg-white text-zinc-950 font-semibold py-2.5 px-4 rounded-xl text-xs shadow-sm transition-all duration-150 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-[0.99]"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${checking ? 'animate-spin' : ''}`} />
-            <span>{checking ? 'Comprobando...' : 'Comprobar Estado de Aprobación'}</span>
+            <span>{checking ? 'Comprobando autorización...' : 'Comprobar Estado de Aprobación'}</span>
           </button>
 
           <button
             onClick={handleLogout}
-            className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium py-2 rounded-lg text-xs transition-colors flex items-center justify-center gap-2"
+            className="w-full bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 font-medium py-2 rounded-xl text-xs border border-zinc-800 transition-colors flex items-center justify-center gap-2 cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>Cerrar Sesión</span>
@@ -116,3 +109,4 @@ export const AccessRequestPendingPage: React.FC = () => {
 };
 
 export default AccessRequestPendingPage;
+
