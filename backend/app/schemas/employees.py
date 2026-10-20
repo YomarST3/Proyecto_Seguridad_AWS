@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, date
 from decimal import Decimal
 
 
@@ -28,8 +28,10 @@ class EmployeeResponse(EmployeeBase):
     id: Any
     company_id: Any
     user_id: Optional[Any]
+    doc_number: Optional[str] = None
+    job_title: str = "Vendedor"
     is_active: bool
-    hire_date: datetime
+    hire_date: Optional[date] = None
 
 
 class EmployeePerformanceResponse(EmployeeResponse):
