@@ -1,15 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  Cell
-} from 'recharts';
+import { useQuery } from '@tanstack/react-query';
 import {
   Users,
   Plus,
@@ -17,48 +7,28 @@ import {
   Eye,
   Building2,
   User,
-  Phone,
-  Mail,
-  MapPin,
-  DollarSign,
-  ShoppingBag,
-  X,
   ShieldCheck,
-  TrendingUp,
-  BarChart3,
-  Package,
-  Calendar,
-  CheckCircle2,
-  Clock,
-  Briefcase,
   FileSpreadsheet,
-  Lock,
-  ArrowRight,
-  UserCheck
+  FileDown
 } from 'lucide-react';
-import { getCustomers, getCustomerDetail, createCustomer, getSales, getOrders, getSettingsUsers } from '../../services/mockDataService';
+import { getCustomers, getCustomerDetail, getSales, getOrders, getSettingsUsers } from '../../services/mockDataService';
 import { Customer, Sale, Order, UsuarioEmpresarial } from '../../types';
 import supabase from '../../services/supabase';
+import { DEFAULT_IDEAS_MEJORA, ProductReportItem } from './types';
+import { exportarReporteExcel } from './services/exportExcelService';
+import { CustomerCreateModal } from './components/CustomerCreateModal';
+import { CustomerDetailModal } from './components/CustomerDetailModal';
+import { ExecutiveReportModal } from './components/ExecutiveReportModal';
 
 export const CustomersPage: React.FC = () => {
-  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [moduloTab, setModuloTab] = useState<'clientes' | 'personal'>('clientes');
   const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [abrirModalReporte, setAbrirModalReporte] = useState(false);
+  const [clientesExcluidos, setClientesExcluidos] = useState<number[]>([]);
 
-  // Estado del formulario de creación de cliente
-  const [formData, setFormData] = useState({
-    customer_type: 'NATURAL' as 'NATURAL' | 'JURIDICA',
-    full_name: '',
-    doc_type: 'DNI',
-    doc_number: '',
-    email: '',
-    phone: '',
-    address: ''
-  });
-
-  // 1. Consulta de clientes reales desde la Base de Datos con fallback a datos sincronizados
+  // 1. Clientes desde Base de Datos Supabase con fallback a mockDataService
   const { data: customers = [], isLoading } = useQuery<Customer[]>({
     queryKey: ['customers', searchTerm],
     queryFn: async () => {
@@ -98,13 +68,15 @@ export const CustomersPage: React.FC = () => {
           }
           return list;
         }
-      } catch { /* Fallback transparente a datos mock */ }
+      } catch {
+        /* Fallback transparente a datos mock */
+      }
 
       return await getCustomers({ search: searchTerm });
     }
   });
 
-  // 2. Consulta de usuarios y colaboradores con roles para separarlos de clientes
+  // 2. Personal con roles para separarlos de clientes
   const { data: systemUsers = [], isLoading: isLoadingUsers } = useQuery<UsuarioEmpresarial[]>({
     queryKey: ['systemUsers', searchTerm],
     queryFn: async () => {
@@ -125,7 +97,7 @@ export const CustomersPage: React.FC = () => {
     queryFn: async () => await getSales(),
   });
 
-  // 4. Pedidos generales para solicitudes
+  // 4. Pedidos generales
   const { data: allOrders = [] } = useQuery<Order[]>({
     queryKey: ['orders'],
     queryFn: async () => await getOrders(),
@@ -142,119 +114,141 @@ export const CustomersPage: React.FC = () => {
     enabled: selectedCustomerId !== null
   });
 
-  // Mutación para crear cliente
-  const createMutation = useMutation({
-    mutationFn: async (payload: typeof formData) => {
-      return await createCustomer(payload);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['customers'] });
-      setIsCreateModalOpen(false);
-      setFormData({
-        customer_type: 'NATURAL',
-        full_name: '',
-        doc_type: 'DNI',
-        doc_number: '',
-        email: '',
-        phone: '',
-        address: ''
-      });
-    }
-  });
-
-  const handleCreateSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    createMutation.mutate(formData);
+  // --------------------------------------------------------------------------
+  // CÁLCULOS PARA REPORTES EJECUTIVOS (EXCEL / PDF / PPT)
+  // --------------------------------------------------------------------------
+  const toggleClienteExcluido = (id: number) => {
+    setClientesExcluidos(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
   };
 
-  // Historial de compras y pedidos del cliente seleccionado
-  const customerOperations = useMemo(() => {
-    if (!customerDetail) return [];
-    const cId = customerDetail.id;
-    const cName = customerDetail.full_name.toLowerCase();
+  const seleccionarTodosClientes = () => setClientesExcluidos([]);
+  const deseleccionarTodosClientes = () => setClientesExcluidos(customers.map(c => c.id));
 
-    const salesList = allSales
-      .filter(s => s.customer_id === cId || (s.customer_name && s.customer_name.toLowerCase() === cName))
-      .map(s => ({
-        id: `sale-${s.id}`,
-        tipo: 'VENTA',
-        codigo: s.sale_code,
-        fecha: s.created_at,
-        vendedor: s.salesperson_name || 'Vendedor Comercial',
-        items: s.items || [],
-        total: Number(s.total_amount || 0),
-        estado: s.payment_status === 'PAID' ? 'Cobrado' : 'Pendiente',
-        badgeColor: s.payment_status === 'PAID' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'
-      }));
+  const clientesParaReporte = useMemo(() => {
+    return customers.filter(c => !clientesExcluidos.includes(c.id));
+  }, [customers, clientesExcluidos]);
 
-    const ordersList = allOrders
-      .filter(o => o.customer_id === cId || (o.customer_name && o.customer_name.toLowerCase() === cName))
-      .map(o => ({
-        id: `order-${o.id}`,
-        tipo: 'PEDIDO',
-        codigo: o.order_code,
-        fecha: o.created_at,
-        vendedor: o.salesperson_name || 'Vendedor Comercial',
-        items: o.items || [],
-        total: Number(o.total_amount || 0),
-        estado: o.status === 'CONFIRMED' ? 'Confirmado' : o.status === 'PENDING' ? 'En Trámite' : 'Borrador',
-        badgeColor: o.status === 'CONFIRMED' ? 'bg-blue-50 text-blue-800 border-blue-200' : 'bg-slate-100 text-slate-700 border-slate-200'
-      }));
+  const rankingReporte = useMemo(() => {
+    return [...clientesParaReporte].sort((a, b) => Number(b.total_amount_spent || 0) - Number(a.total_amount_spent || 0));
+  }, [clientesParaReporte]);
 
-    return [...salesList, ...ordersList].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-  }, [customerDetail, allSales, allOrders]);
+  const mejorCliente = rankingReporte[0] || null;
 
-  // Artículos más consumidos por el cliente
-  const customerTopProducts = useMemo(() => {
-    const map = new Map<string, { sku: string; name: string; quantity: number; totalSpent: number }>();
-    customerOperations.forEach(op => {
-      (op.items || []).forEach((item: any) => {
-        const sku = item.product_sku || 'SKU';
-        const name = item.product_name || 'Producto';
-        const existing = map.get(sku) || { sku, name, quantity: 0, totalSpent: 0 };
-        existing.quantity += Number(item.quantity || 1);
-        const subtotal = Number(item.line_subtotal || (Number(item.quantity || 1) * Number(item.unit_price || 0)));
-        existing.totalSpent += subtotal;
+  const totalFacturadoReporte = useMemo(() => {
+    return clientesParaReporte.reduce((acc, c) => acc + Number(c.total_amount_spent || 0), 0);
+  }, [clientesParaReporte]);
+
+  const totalComprasReporte = useMemo(() => {
+    return clientesParaReporte.reduce((acc, c) => acc + Number(c.total_purchases_count || 0), 0);
+  }, [clientesParaReporte]);
+
+  const ticketPromedioReporte = useMemo(() => {
+    if (totalComprasReporte === 0) return 0;
+    return totalFacturadoReporte / totalComprasReporte;
+  }, [totalFacturadoReporte, totalComprasReporte]);
+
+  const chartDataRankingReporte = useMemo(() => {
+    return rankingReporte.slice(0, 5).map(c => ({
+      name: c.full_name.length > 18 ? `${c.full_name.substring(0, 16)}...` : c.full_name,
+      fullName: c.full_name,
+      monto: Number(c.total_amount_spent || 0),
+      compras: c.total_purchases_count || 0
+    }));
+  }, [rankingReporte]);
+
+  const chartDataDistribucionReporte = useMemo(() => {
+    const jur = clientesParaReporte.filter(c => c.customer_type === 'JURIDICA').length;
+    const nat = clientesParaReporte.filter(c => c.customer_type === 'NATURAL').length;
+    return [
+      { name: 'Empresas (Jurídica)', value: jur, fill: '#0284c7' },
+      { name: 'Personas (Natural)', value: nat, fill: '#0d9488' }
+    ];
+  }, [clientesParaReporte]);
+
+  const ventasParaReporte = useMemo(() => {
+    const cIds = new Set(clientesParaReporte.map(c => c.id));
+    return allSales.filter(s => cIds.has(s.customer_id)).slice(0, 8);
+  }, [clientesParaReporte, allSales]);
+
+  // Productos vendidos a la cartera de clientes seleccionada
+  const productosParaReporte = useMemo<ProductReportItem[]>(() => {
+    const map = new Map<string, ProductReportItem>();
+    const cIds = new Set(clientesParaReporte.map(c => c.id));
+    const cNames = new Set(clientesParaReporte.map(c => c.full_name.toLowerCase()));
+
+    const relevantSales = allSales.filter(s => cIds.has(s.customer_id) || (s.customer_name && cNames.has(s.customer_name.toLowerCase())));
+
+    relevantSales.forEach(s => {
+      (s.items || []).forEach((it: any) => {
+        const sku = it.product_sku || 'SKU-GEN';
+        const name = it.product_name || 'Producto General';
+        const qty = Number(it.quantity || 1);
+        const subtotal = Number(it.line_subtotal || (qty * Number(it.unit_price || 0)));
+
+        const existing = map.get(sku) || {
+          sku,
+          name,
+          category: 'Tecnología & Hardware',
+          quantity: 0,
+          totalRevenue: 0,
+          avgPrice: 0,
+          pctRevenue: 0,
+          demandLevel: 'Demanda Media'
+        };
+        existing.quantity += qty;
+        existing.totalRevenue += subtotal;
         map.set(sku, existing);
       });
     });
 
-    const list = Array.from(map.values()).sort((a, b) => b.quantity - a.quantity);
-    if (list.length > 0) return list.slice(0, 4);
+    let list = Array.from(map.values());
+    if (list.length === 0) {
+      list = [
+        { sku: 'ELEC-001', name: 'Laptop ThinkPad X1 Carbon Gen 10', category: 'Cómputo & Laptops', quantity: 14, totalRevenue: 18199.86, avgPrice: 1299.99, pctRevenue: 43.5, demandLevel: 'Alta Rotación' },
+        { sku: 'ELEC-002', name: 'Monitor Dell UltraSharp 27" 4K', category: 'Monitores & Pantallas', quantity: 18, totalRevenue: 9899.82, avgPrice: 549.99, pctRevenue: 23.6, demandLevel: 'Alta Rotación' },
+        { sku: 'ELEC-003', name: 'Servidor Torre HPE ProLiant ML350', category: 'Servidores & Infraestructura', quantity: 2, totalRevenue: 9599.98, avgPrice: 4799.99, pctRevenue: 22.9, demandLevel: 'Estratégico' },
+        { sku: 'PERI-001', name: 'Teclado Mecánico Logitech MX Keys', category: 'Periféricos & Accesorios', quantity: 22, totalRevenue: 2199.78, avgPrice: 99.99, pctRevenue: 5.2, demandLevel: 'Rotación Media' },
+        { sku: 'PERI-002', name: 'Mouse Inalámbrico Logitech MX Master 3S', category: 'Periféricos & Accesorios', quantity: 25, totalRevenue: 2499.75, avgPrice: 99.99, pctRevenue: 5.9, demandLevel: 'Rotación Media' },
+        { sku: 'NET-001', name: 'Switch Cisco Catalyst 24 Puertos Gigabit', category: 'Redes & Conectividad', quantity: 4, totalRevenue: 2399.96, avgPrice: 599.99, pctRevenue: 5.7, demandLevel: 'Estratégico' },
+      ];
+    } else {
+      const totalRev = list.reduce((acc, p) => acc + p.totalRevenue, 0);
+      list = list.map(p => {
+        const avgPrice = p.quantity > 0 ? p.totalRevenue / p.quantity : 0;
+        const pct = totalRev > 0 ? (p.totalRevenue / totalRev) * 100 : 0;
+        const demand = p.quantity >= 10 ? 'Alta Rotación' : p.totalRevenue >= 5000 ? 'Estratégico' : 'Rotación Media';
+        return {
+          ...p,
+          avgPrice,
+          pctRevenue: pct,
+          demandLevel: demand
+        };
+      });
+    }
 
-    return [
-      { sku: 'ELEC-001', name: 'Laptop ThinkPad X1 Carbon', quantity: 2, totalSpent: 2599.98 },
-      { sku: 'ELEC-002', name: 'Monitor Dell UltraSharp 27"', quantity: 4, totalSpent: 2199.96 },
-      { sku: 'PERI-001', name: 'Teclado Logitech MX Keys', quantity: 2, totalSpent: 199.98 },
-    ];
-  }, [customerOperations]);
+    return list.sort((a, b) => b.totalRevenue - a.totalRevenue);
+  }, [clientesParaReporte, allSales]);
 
-  // Evolución mensual de consumo del cliente
-  const customerMonthlyConsumption = useMemo(() => {
-    if (!customerDetail) return [];
-    const totalSpent = Number(customerDetail.total_amount_spent || 0);
-    return [
-      { mes: 'Jul', monto: Math.round(totalSpent * 0.15) },
-      { mes: 'Ago', monto: Math.round(totalSpent * 0.25) },
-      { mes: 'Sep', monto: Math.round(totalSpent * 0.35) },
-      { mes: 'Oct', monto: Math.round(totalSpent * 0.25) },
-    ];
-  }, [customerDetail]);
-
-  const totalInvertido = useMemo(() => {
-    if (!customerDetail) return 0;
-    return Number(customerDetail.total_amount_spent) || customerOperations.reduce((sum, o) => sum + o.total, 0);
-  }, [customerDetail, customerOperations]);
-
-  const totalOperaciones = useMemo(() => {
-    if (!customerDetail) return 0;
-    return customerDetail.total_purchases_count || customerOperations.length;
-  }, [customerDetail, customerOperations]);
-
-  const ticketPromedio = useMemo(() => {
-    if (totalOperaciones === 0) return 0;
-    return totalInvertido / totalOperaciones;
-  }, [totalInvertido, totalOperaciones]);
+  // Exportar Excel directo con diseño ejecutivo corporativo
+  const handleDescargarExcelDirecto = async () => {
+    await exportarReporteExcel({
+      tituloReporte: 'Reporte Ejecutivo de Cartera de Clientes & Compras',
+      periodoReporte: 'MENSUAL',
+      notasReporte: 'Consolidado comercial emitido para la dirección general y administración. Auditoría de facturación, clientes destacados y comportamiento de consumo.',
+      clientes: customers,
+      productos: productosParaReporte,
+      ventas: allSales.slice(0, 15),
+      ideasMejora: DEFAULT_IDEAS_MEJORA,
+      personalRoles: systemUsers,
+      incluirPersonalRoles: true,
+      totalFacturado: totalFacturadoReporte,
+      totalCompras: totalComprasReporte,
+      ticketPromedio: ticketPromedioReporte,
+      mejorCliente
+    });
+  };
 
   return (
     <div className="space-y-6 antialiased">
@@ -266,13 +260,37 @@ export const CustomersPage: React.FC = () => {
             Gestión demográfica comercial, historial de consumo individual y separación de usuarios con roles corporativos.
           </p>
         </div>
-        <button
-          onClick={() => setIsCreateModalOpen(true)}
-          className="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-xs transition-colors self-start sm:self-auto cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Registrar Cliente</span>
-        </button>
+        
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          {/* Botón Descargar Excel directo */}
+          <button
+            onClick={handleDescargarExcelDirecto}
+            className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 hover:border-slate-300 px-3.5 py-2 rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            title="Exportar cartera, productos y métricas directamente a Microsoft Excel (.xlsx) con diseño premium"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+            <span>Descargar Excel</span>
+          </button>
+
+          {/* Botón para abrir el Reporte PDF Editable */}
+          <button
+            onClick={() => setAbrirModalReporte(true)}
+            className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 hover:border-slate-300 px-3.5 py-2 rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            title="Generar y personalizar reporte PDF / PPT mensual o quincenal con descarga directa"
+          >
+            <FileDown className="w-4 h-4 text-blue-600" />
+            <span>Generar Reporte PDF</span>
+          </button>
+
+          {/* Botón Registrar Cliente */}
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 hover:border-slate-300 px-3.5 py-2 rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+          >
+            <Plus className="w-4 h-4 text-blue-600" />
+            <span>Registrar Cliente</span>
+          </button>
+        </div>
       </div>
 
       {/* Selector de Pestañas: Separación de Clientes vs Personal con Roles */}
@@ -281,11 +299,11 @@ export const CustomersPage: React.FC = () => {
           onClick={() => setModuloTab('clientes')}
           className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer ${
             moduloTab === 'clientes'
-              ? 'bg-slate-900 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100'
+              ? 'bg-white text-slate-900 border-2 border-slate-900 shadow-xs font-bold'
+              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-900 font-medium'
           }`}
         >
-          <Users className="w-4 h-4 text-sky-400" />
+          <Users className="w-4 h-4 text-blue-600" />
           <span>Clientes Comerciales ({customers.length})</span>
         </button>
 
@@ -293,11 +311,11 @@ export const CustomersPage: React.FC = () => {
           onClick={() => setModuloTab('personal')}
           className={`px-3.5 py-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer ${
             moduloTab === 'personal'
-              ? 'bg-slate-900 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100'
+              ? 'bg-white text-slate-900 border-2 border-slate-900 shadow-xs font-bold'
+              : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-900 font-medium'
           }`}
         >
-          <ShieldCheck className="w-4 h-4 text-amber-500" />
+          <ShieldCheck className="w-4 h-4 text-amber-600" />
           <span>Usuarios & Personal con Roles ({systemUsers.length})</span>
         </button>
       </div>
@@ -355,7 +373,7 @@ export const CustomersPage: React.FC = () => {
                       key={c.id}
                       onClick={() => setSelectedCustomerId(c.id)}
                       className="hover:bg-slate-50/80 transition-colors cursor-pointer group"
-                      title="Haz clic para ver el expediente comercial e historial de compras"
+                      title="Haz clic para abrir el expediente comercial e historial de compras"
                     >
                       <td className="py-3 px-4">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold ${
@@ -395,7 +413,7 @@ export const CustomersPage: React.FC = () => {
                             e.stopPropagation();
                             setSelectedCustomerId(c.id);
                           }}
-                          className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-700 font-semibold text-xs px-2.5 py-1 rounded-lg hover:bg-blue-50 border border-transparent hover:border-blue-200 transition-colors"
+                          className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-700 font-semibold text-xs px-2.5 py-1 rounded-lg hover:bg-blue-50 border border-transparent hover:border-blue-200 transition-colors cursor-pointer"
                         >
                           <Eye className="w-3.5 h-3.5" />
                           <span>Ver Expediente</span>
@@ -513,386 +531,49 @@ export const CustomersPage: React.FC = () => {
       )}
 
       {/* ==================================================================== */}
-      {/* MODAL / VENTANA: EXPEDIENTE, HISTORIAL Y GRÁFICOS DEL CLIENTE         */}
+      {/* MODAL 1: EXPEDIENTE, HISTORIAL Y GRÁFICOS DEL CLIENTE SELECCIONADO    */}
       {/* ==================================================================== */}
       {selectedCustomerId && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-4xl w-full p-4 sm:p-6 shadow-2xl border border-slate-200 space-y-5 max-h-[92vh] overflow-y-auto my-auto">
-            
-            {/* Cabecera del Expediente */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-200">
-                  <UserCheck className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 text-sm sm:text-base">
-                    Expediente Comercial & Rendimiento del Cliente
-                  </h3>
-                  <p className="text-[11px] text-slate-400">
-                    Historial de compras, productos solicitados y análisis de consumo
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setSelectedCustomerId(null)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
-                title="Cerrar ventana"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {isLoadingDetail || !customerDetail ? (
-              <div className="py-16 text-center text-xs text-slate-400">
-                Consultando expediente del cliente en la base de datos...
-              </div>
-            ) : (
-              <div className="space-y-5">
-                
-                {/* Nota de Privacidad Corporativa */}
-                <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-600 flex items-center gap-2">
-                  <Lock className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                  <span>
-                    <strong>Perfil visible para Administrador:</strong> Datos demográficos y comerciales consolidados. Contraseñas de acceso, tokens y tarjetas confidenciales se mantienen encriptados por seguridad.
-                  </span>
-                </div>
-
-                {/* Perfil del Cliente */}
-                <div className="p-4 bg-slate-50/70 rounded-xl border border-slate-200 text-xs space-y-2">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
-                    <div>
-                      <h4 className="font-bold text-base text-slate-900">{customerDetail.full_name}</h4>
-                      <p className="text-[11px] text-slate-500 font-mono">
-                        {customerDetail.doc_type}: {customerDetail.doc_number} • Tipo: {customerDetail.customer_type}
-                      </p>
-                    </div>
-                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 self-start sm:self-auto">
-                      Cliente Activo Verificado
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 text-slate-600">
-                    <div className="flex items-center gap-2 truncate">
-                      <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span className="truncate">{customerDetail.email || 'No registrado'}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span>{customerDetail.phone || 'No registrado'}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span className="truncate">{customerDetail.address || 'Sin dirección registrada'}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Tarjetas de Rendimiento Comercial */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-center">
-                    <DollarSign className="w-4 h-4 text-emerald-600 mx-auto mb-1" />
-                    <p className="text-[10px] font-semibold text-slate-500 uppercase">Consumo Total</p>
-                    <p className="text-base font-bold text-slate-900 mt-0.5">${totalInvertido.toLocaleString()}</p>
-                  </div>
-
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-center">
-                    <ShoppingBag className="w-4 h-4 text-blue-600 mx-auto mb-1" />
-                    <p className="text-[10px] font-semibold text-slate-500 uppercase">Compras Hechas</p>
-                    <p className="text-base font-bold text-slate-900 mt-0.5">{totalOperaciones} ops.</p>
-                  </div>
-
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-center">
-                    <DollarSign className="w-4 h-4 text-sky-600 mx-auto mb-1" />
-                    <p className="text-[10px] font-semibold text-slate-500 uppercase">Ticket Promedio</p>
-                    <p className="text-base font-bold text-slate-900 mt-0.5">${ticketPromedio.toFixed(2)}</p>
-                  </div>
-
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-center">
-                    <CheckCircle2 className="w-4 h-4 text-indigo-600 mx-auto mb-1" />
-                    <p className="text-[10px] font-semibold text-slate-500 uppercase">Nivel Cliente</p>
-                    <p className="text-xs font-bold text-indigo-900 mt-1">
-                      {totalInvertido > 10000 ? 'Corporativo VIP' : totalInvertido > 3000 ? 'Preferencial' : 'Regular'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Gráficos Estadísticos del Rendimiento del Cliente */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                  
-                  {/* Gráfico 1: Evolución del Consumo Histórico */}
-                  <div className="bg-slate-50/70 border border-slate-200 rounded-xl p-3.5">
-                    <div className="flex items-center justify-between mb-2">
-                      <h5 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                        <TrendingUp className="w-3.5 h-3.5 text-blue-600" />
-                        Evolución de Compras ($)
-                      </h5>
-                      <span className="text-[10px] text-slate-400 font-mono">Consumo mensual</span>
-                    </div>
-                    <div className="h-44 w-full min-w-0">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={customerMonthlyConsumption} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                          <XAxis dataKey="mes" tick={{ fontSize: 10, fill: '#64748b' }} />
-                          <YAxis tick={{ fontSize: 10, fill: '#64748b' }} tickFormatter={(v) => `$${v}`} />
-                          <Tooltip
-                            contentStyle={{ backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '11px' }}
-                            formatter={(val: any) => [`$${Number(val).toLocaleString()}`, 'Compras']}
-                          />
-                          <Bar dataKey="monto" fill="#0284c7" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-
-                  {/* Gráfico 2: Productos Más Consumidos */}
-                  <div className="bg-slate-50/70 border border-slate-200 rounded-xl p-3.5">
-                    <div className="flex items-center justify-between mb-2">
-                      <h5 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                        <Package className="w-3.5 h-3.5 text-teal-600" />
-                        Artículos Más Comprados (Uds)
-                      </h5>
-                      <span className="text-[10px] text-slate-400 font-mono">Top productos</span>
-                    </div>
-                    <div className="h-44 w-full min-w-0">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={customerTopProducts} layout="vertical" margin={{ top: 5, right: 15, left: 15, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                          <XAxis type="number" tick={{ fontSize: 10, fill: '#64748b' }} />
-                          <YAxis type="category" dataKey="sku" tick={{ fontSize: 10, fill: '#64748b', fontWeight: 600 }} />
-                          <Tooltip
-                            contentStyle={{ backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '11px' }}
-                            formatter={(val: any, name: any, item: any) => [
-                              `${val} unidades ($${Number(item?.payload?.totalSpent || 0).toLocaleString()})`,
-                              'Cantidad'
-                            ]}
-                            labelFormatter={(sku) => {
-                              const p = customerTopProducts.find(x => x.sku === sku);
-                              return p ? `${sku}: ${p.name}` : sku;
-                            }}
-                          />
-                          <Bar dataKey="quantity" fill="#0d9488" radius={[0, 4, 4, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-
-                </div>
-
-                {/* Historial de Compras y Consumo */}
-                <div className="space-y-2 pt-2">
-                  <div className="flex items-center justify-between">
-                    <h5 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                      <FileSpreadsheet className="w-4 h-4 text-slate-500" />
-                      Historial Detallado de Operaciones y Consumo ({customerOperations.length})
-                    </h5>
-                    <span className="text-[11px] text-slate-400">
-                      Ventas y pedidos asociados en el sistema
-                    </span>
-                  </div>
-
-                  {customerOperations.length === 0 ? (
-                    <div className="p-6 text-center text-xs text-slate-400 bg-slate-50 border border-slate-200 rounded-xl">
-                      Aún no se registran compras o pedidos formalizados para este cliente.
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                      <table className="w-full text-left text-xs min-w-[600px]">
-                        <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[10px] tracking-wider">
-                          <tr>
-                            <th className="py-2.5 px-3">Código</th>
-                            <th className="py-2.5 px-3">Tipo</th>
-                            <th className="py-2.5 px-3">Fecha</th>
-                            <th className="py-2.5 px-3">Vendedor</th>
-                            <th className="py-2.5 px-3">Artículos Consumidos</th>
-                            <th className="py-2.5 px-3">Monto Total</th>
-                            <th className="py-2.5 px-3">Estado</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {customerOperations.map((op) => (
-                            <tr key={op.id} className="hover:bg-slate-50/60 transition-colors">
-                              <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
-                                {op.codigo}
-                              </td>
-                              <td className="py-2.5 px-3">
-                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                                  op.tipo === 'VENTA' ? 'bg-emerald-50 text-emerald-800' : 'bg-blue-50 text-blue-800'
-                                }`}>
-                                  {op.tipo}
-                                </span>
-                              </td>
-                              <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">
-                                {new Date(op.fecha).toLocaleDateString()}
-                              </td>
-                              <td className="py-2.5 px-3 text-slate-700">
-                                {op.vendedor}
-                              </td>
-                              <td className="py-2.5 px-3">
-                                <div className="flex flex-wrap gap-1 max-w-xs">
-                                  {op.items && op.items.length > 0 ? (
-                                    op.items.map((it: any, idx: number) => (
-                                      <span
-                                        key={idx}
-                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-800 border border-slate-200"
-                                      >
-                                        <span className="font-bold text-blue-600">{it.quantity}x</span> {it.product_name}
-                                      </span>
-                                    ))
-                                  ) : (
-                                    <span className="text-slate-400 text-[10px] italic">Operación directa</span>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="py-2.5 px-3 font-mono font-bold text-slate-900 whitespace-nowrap">
-                                ${op.total.toLocaleString()}
-                              </td>
-                              <td className="py-2.5 px-3">
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${op.badgeColor}`}>
-                                  {op.estado}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-2 text-right border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedCustomerId(null)}
-                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-                  >
-                    Cerrar Expediente
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        <CustomerDetailModal
+          customerDetail={customerDetail}
+          isLoading={isLoadingDetail}
+          onClose={() => setSelectedCustomerId(null)}
+          allSales={allSales}
+          allOrders={allOrders}
+        />
       )}
 
-      {/* Modal Registrar Cliente */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto my-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-              <h3 className="font-bold text-slate-900 text-sm">Registrar Nuevo Cliente</h3>
-              <button onClick={() => setIsCreateModalOpen(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      {/* ==================================================================== */}
+      {/* MODAL 2: REGISTRO DE NUEVO CLIENTE                                   */}
+      {/* ==================================================================== */}
+      <CustomerCreateModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+      />
 
-            <form onSubmit={handleCreateSubmit} className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">Tipo de Cliente</label>
-                  <select
-                    value={formData.customer_type}
-                    onChange={(e: any) => setFormData({ ...formData, customer_type: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 focus:outline-none focus:border-sky-500"
-                  >
-                    <option value="NATURAL">Persona Natural</option>
-                    <option value="JURIDICA">Persona Jurídica</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">Tipo Documento</label>
-                  <select
-                    value={formData.doc_type}
-                    onChange={(e) => setFormData({ ...formData, doc_type: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 focus:outline-none focus:border-sky-500"
-                  >
-                    <option value="DNI">DNI</option>
-                    <option value="RUC">RUC</option>
-                    <option value="PASSPORT">Pasaporte</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Número de Documento</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.doc_number}
-                  onChange={(e) => setFormData({ ...formData, doc_number: e.target.value })}
-                  placeholder="Número de DNI / RUC"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 focus:outline-none focus:border-sky-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Nombre Completo / Razón Social</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.full_name}
-                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  placeholder="Razón social o nombre del cliente"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 focus:outline-none focus:border-sky-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">Correo Electrónico</label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="cliente@email.com"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 focus:outline-none focus:border-sky-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">Teléfono</label>
-                  <input
-                    type="text"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+51 987 654 321"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 focus:outline-none focus:border-sky-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Dirección</label>
-                <input
-                  type="text"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="Av. Principal 123"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 focus:outline-none focus:border-sky-500"
-                />
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
-                  className="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 font-semibold text-slate-700 cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending}
-                  className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 font-semibold text-white shadow-xs cursor-pointer"
-                >
-                  {createMutation.isPending ? 'Guardando...' : 'Guardar Cliente'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* ==================================================================== */}
+      {/* MODAL 3: REPORTE EJECUTIVO EDITABLE (EXCEL / PDF / PPT / IMPRIMIR)    */}
+      {/* ==================================================================== */}
+      <ExecutiveReportModal
+        isOpen={abrirModalReporte}
+        onClose={() => setAbrirModalReporte(false)}
+        customers={customers}
+        allSales={allSales}
+        systemUsers={systemUsers}
+        rankingReporte={rankingReporte}
+        mejorCliente={mejorCliente}
+        totalFacturadoReporte={totalFacturadoReporte}
+        totalComprasReporte={totalComprasReporte}
+        ticketPromedioReporte={ticketPromedioReporte}
+        chartDataRankingReporte={chartDataRankingReporte}
+        chartDataDistribucionReporte={chartDataDistribucionReporte}
+        productosParaReporte={productosParaReporte}
+        ventasParaReporte={ventasParaReporte}
+        clientesExcluidos={clientesExcluidos}
+        toggleClienteExcluido={toggleClienteExcluido}
+        seleccionarTodosClientes={seleccionarTodosClientes}
+        deseleccionarTodosClientes={deseleccionarTodosClientes}
+      />
     </div>
   );
 };
-
-export default CustomersPage;

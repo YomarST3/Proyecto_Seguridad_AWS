@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { getDashboardSummary } from '../../services/mockDataService';
 import { DashboardSummary } from '../../types';
+import { useAuth } from '../../contexts/AuthContext';
+import { useVoiceAssistant } from '../../contexts/VoiceAssistantContext';
 
 import { ProjectLoadingScreen } from '../../components/ProjectLoadingScreen';
 
@@ -32,6 +34,8 @@ export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const [showGuide, setShowGuide] = useState(true);
   const [activeTab, setActiveTab] = useState<'todos' | 'financiero' | 'almacen'>('todos');
+  const { user } = useAuth();
+  const { playDashboardWelcome, stopAll } = useVoiceAssistant();
 
   const { data, isLoading, error } = useQuery<DashboardSummary>({
     queryKey: ['dashboardSummary'],
@@ -40,6 +44,24 @@ export const DashboardPage: React.FC = () => {
     },
     refetchInterval: 30000,
   });
+
+  // Bienvenida por voz al ingresar al Dashboard principal (con nombre y dato de la empresa)
+  useEffect(() => {
+    if (data && !isLoading) {
+      const cleanName = user?.full_name || (user?.email ? user.email.split('@')[0] : 'Administrador');
+      const companyStat = data.confirmed_sales_total
+        ? `La facturación confirmada de la empresa es de ${Math.round(Number(data.confirmed_sales_total)).toLocaleString()} dólares.`
+        : 'Las operaciones de ventas e inventario se encuentran sincronizadas.';
+      playDashboardWelcome(cleanName, companyStat);
+    }
+  }, [data, isLoading, user, playDashboardWelcome]);
+
+  // Al desmontar o salir del Dashboard, detener inmediatamente cualquier locución
+  useEffect(() => {
+    return () => {
+      stopAll();
+    };
+  }, [stopAll]);
 
   if (isLoading) {
     return (

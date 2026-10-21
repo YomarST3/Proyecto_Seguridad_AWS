@@ -32,6 +32,7 @@ const queryClient = new QueryClient({
 });
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { VoiceAssistantProvider } from './contexts/VoiceAssistantContext';
 import { ProjectLoadingScreen } from './components/ProjectLoadingScreen';
 
 // Manejador reactivo para interceptar la confirmación de correo de Supabase y llevar directo al Dashboard
@@ -73,43 +74,45 @@ export const App: React.FC = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <BrowserRouter>
-          <AuthCallbackWatcher />
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/registro" element={<RegisterPage />} />
-            <Route path="/verificar-correo-pendiente" element={<EmailVerificationPendingPage />} />
-            <Route path="/pendiente-aprobacion" element={<AccessRequestPendingPage />} />
+        <VoiceAssistantProvider>
+          <BrowserRouter>
+            <AuthCallbackWatcher />
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/registro" element={<RegisterPage />} />
+              <Route path="/verificar-correo-pendiente" element={<EmailVerificationPendingPage />} />
+              <Route path="/pendiente-aprobacion" element={<AccessRequestPendingPage />} />
 
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <AppLayout />
-                </ProtectedRoute>
-              }
-            >
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout />
+                  </ProtectedRoute>
+                }
+              >
 
-              <Route index element={<Navigate to="/dashboard" replace />} />
-              <Route path="dashboard" element={<DashboardPage />} />
-              <Route path="customers" element={<CustomersPage />} />
-              <Route path="products" element={<ProductsPage />} />
-              <Route path="inventory" element={<InventoryPage />} />
-              <Route path="orders" element={<OrdersPage />} />
-              <Route path="sales" element={<SalesPage />} />
-              <Route path="payments" element={<PaymentsPage />} />
-              <Route path="employees" element={<EmployeesPage />} />
-              <Route path="analytics" element={<AnalyticsPage />} />
-              <Route path="probability" element={<ProbabilityPage />} />
-              <Route path="insights" element={<InsightsPage />} />
-              <Route path="reports" element={<ReportsPage />} />
-              <Route path="settings" element={<SettingsPage />} />
-              <Route path="chat" element={<ChatPage />} />
-            </Route>
+                <Route index element={<Navigate to="/dashboard" replace />} />
+                <Route path="dashboard" element={<DashboardPage />} />
+                <Route path="customers" element={<CustomersPage />} />
+                <Route path="products" element={<ProductsPage />} />
+                <Route path="inventory" element={<InventoryPage />} />
+                <Route path="orders" element={<OrdersPage />} />
+                <Route path="sales" element={<SalesPage />} />
+                <Route path="payments" element={<PaymentsPage />} />
+                <Route path="employees" element={<EmployeesPage />} />
+                <Route path="analytics" element={<AnalyticsPage />} />
+                <Route path="probability" element={<ProbabilityPage />} />
+                <Route path="insights" element={<InsightsPage />} />
+                <Route path="reports" element={<ReportsPage />} />
+                <Route path="settings" element={<SettingsPage />} />
+                <Route path="chat" element={<ChatPage />} />
+              </Route>
 
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
-        </BrowserRouter>
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </VoiceAssistantProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

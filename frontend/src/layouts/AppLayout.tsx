@@ -24,6 +24,7 @@ import {
 
 import { useAuth } from '../contexts/AuthContext';
 import { UserAvatar, extractUsernameFromEmail } from '../lib/userAvatar';
+import { VoiceAssistantControl } from '../components/VoiceAssistantControl';
 
 export const AppLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -357,6 +358,9 @@ export const AppLayout: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Asistente de Voz Interactivo */}
+            <VoiceAssistantControl />
+
             <div className="flex items-center gap-1.5 sm:gap-2 border border-slate-200 px-2 sm:px-3 py-1.5 rounded-lg bg-slate-50 text-[11px] sm:text-xs text-slate-600">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></div>
               <span className="hidden sm:inline">Base de datos Supabase Activa</span>

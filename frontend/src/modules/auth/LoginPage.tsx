@@ -18,18 +18,30 @@ import { useAuth } from '../../contexts/AuthContext';
 import supabase from '../../services/supabase';
 import { UserAvatar, extractUsernameFromEmail, getInitialLetter } from '../../lib/userAvatar';
 import { ProjectLoadingScreen } from '../../components/ProjectLoadingScreen';
+import { useVoiceAssistant } from '../../contexts/VoiceAssistantContext';
+import { VoiceAssistantControl } from '../../components/VoiceAssistantControl';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, signIn, signInWithGoogle } = useAuth();
+  const { playLoginAudio, stopAll } = useVoiceAssistant();
+
+  // Reproducir audio de bienvenida al entrar a la pantalla de login y silenciar al salir
+  useEffect(() => {
+    playLoginAudio();
+    return () => {
+      stopAll();
+    };
+  }, [playLoginAudio, stopAll]);
 
   // Redireccionar si ya existe sesión activa (ej. retorno de Google OAuth)
   useEffect(() => {
     if (user) {
+      stopAll();
       navigate('/dashboard', { replace: true });
     }
-  }, [user, navigate]);
+  }, [user, navigate, stopAll]);
 
   const [email, setEmail] = useState(() => searchParams.get('email') || '');
   const [password, setPassword] = useState('');
@@ -205,6 +217,11 @@ export const LoginPage: React.FC = () => {
 
       {/* Capas cinemáticas de iluminación ambiental sobria */}
       <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-[2px] pointer-events-none" />
+
+      {/* Control de voz superior derecho */}
+      <div className="absolute top-4 right-4 z-30">
+        <VoiceAssistantControl />
+      </div>
 
       {/* ========================================================================= */}
       {/* TARJETA GLASSMORPHISM ENTERPRISE (TONOS NEUTROS EMPRESARIALES)           */}
