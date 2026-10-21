@@ -26,6 +26,8 @@ import {
 import { getDashboardSummary } from '../../services/mockDataService';
 import { DashboardSummary } from '../../types';
 
+import { ProjectLoadingScreen } from '../../components/ProjectLoadingScreen';
+
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const [showGuide, setShowGuide] = useState(true);
@@ -41,12 +43,11 @@ export const DashboardPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex h-96 items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-xs text-neutral-500 font-medium animate-pulse">Sincronizando consola operativa...</span>
-        </div>
-      </div>
+      <ProjectLoadingScreen
+        inline
+        message="Sincronizando consola operativa y métricas de seguridad..."
+        subtitle="CloudGuard • AWS Security Console"
+      />
     );
   }
 

@@ -20,6 +20,7 @@ import { ProbabilityPage } from './modules/probability/ProbabilityPage';
 import { InsightsPage } from './modules/insights/InsightsPage';
 import { ReportsPage } from './modules/reports/ReportsPage';
 import { SettingsPage } from './modules/settings/SettingsPage';
+import { ChatPage } from './modules/chat/ChatPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,19 +32,33 @@ const queryClient = new QueryClient({
 });
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ProjectLoadingScreen } from './components/ProjectLoadingScreen';
 
-// Protected Route Guard with full session check & loading state
+// Manejador reactivo para interceptar la confirmación de correo de Supabase y llevar directo al Dashboard
+const AuthCallbackWatcher: React.FC = () => {
+  React.useEffect(() => {
+    const hash = window.location.hash;
+    const search = window.location.search;
+
+    if (hash.includes('type=signup') || hash.includes('type=email_change') || hash.includes('access_token') || search.includes('code=')) {
+      // Al confirmar el correo en Supabase, cargar directamente el dashboard
+      window.history.replaceState(null, '', '/dashboard');
+    }
+  }, []);
+
+  return null;
+};
+
+// Protected Route Guard with full session check & animated loading screen
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="min-h-screen w-full bg-slate-950 flex flex-col items-center justify-center p-4">
-        <div className="w-10 h-10 border-4 border-sky-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="text-xs font-medium text-slate-400 tracking-wide uppercase">
-          Verificando sesión empresarial...
-        </p>
-      </div>
+      <ProjectLoadingScreen
+        message="Verificando sesión empresarial..."
+        subtitle="Control de Acceso AWS & Supabase"
+      />
     );
   }
 
@@ -59,6 +74,7 @@ export const App: React.FC = () => {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrowserRouter>
+          <AuthCallbackWatcher />
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/registro" element={<RegisterPage />} />
@@ -74,25 +90,26 @@ export const App: React.FC = () => {
               }
             >
 
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="customers" element={<CustomersPage />} />
-            <Route path="products" element={<ProductsPage />} />
-            <Route path="inventory" element={<InventoryPage />} />
-            <Route path="orders" element={<OrdersPage />} />
-            <Route path="sales" element={<SalesPage />} />
-            <Route path="payments" element={<PaymentsPage />} />
-            <Route path="employees" element={<EmployeesPage />} />
-            <Route path="analytics" element={<AnalyticsPage />} />
-            <Route path="probability" element={<ProbabilityPage />} />
-            <Route path="insights" element={<InsightsPage />} />
-            <Route path="reports" element={<ReportsPage />} />
-            <Route path="settings" element={<SettingsPage />} />
-          </Route>
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="customers" element={<CustomersPage />} />
+              <Route path="products" element={<ProductsPage />} />
+              <Route path="inventory" element={<InventoryPage />} />
+              <Route path="orders" element={<OrdersPage />} />
+              <Route path="sales" element={<SalesPage />} />
+              <Route path="payments" element={<PaymentsPage />} />
+              <Route path="employees" element={<EmployeesPage />} />
+              <Route path="analytics" element={<AnalyticsPage />} />
+              <Route path="probability" element={<ProbabilityPage />} />
+              <Route path="insights" element={<InsightsPage />} />
+              <Route path="reports" element={<ReportsPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+              <Route path="chat" element={<ChatPage />} />
+            </Route>
 
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </BrowserRouter>
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </BrowserRouter>
       </AuthProvider>
     </QueryClientProvider>
   );

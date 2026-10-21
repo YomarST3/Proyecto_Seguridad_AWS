@@ -172,19 +172,26 @@ export const mockInventoryMovements: InventoryMovement[] = [
 ];
 
 // ============================================================================
-// EMPLEADOS
+// EMPLEADOS (Usuarios reales registrados en la Base de Datos)
 // ============================================================================
 export const mockEmployees: Employee[] = [
-  { id: 1, company_id: 1, first_name: 'Ana', last_name: 'Torres Castillo', doc_number: '40234567', email: 'ana.torres@salesia.com', phone: '+51 987 111 222', job_title: 'Ejecutiva de Cuenta Senior', commission_rate: 0.05, monthly_sales_target: 15000, is_active: true, hire_date: '2024-03-15' },
-  { id: 2, company_id: 1, first_name: 'Roberto', last_name: 'Vargas Morales', doc_number: '41567890', email: 'roberto.vargas@salesia.com', phone: '+51 987 333 444', job_title: 'Vendedor Comercial', commission_rate: 0.04, monthly_sales_target: 10000, is_active: true, hire_date: '2024-06-01' },
-  { id: 3, company_id: 1, first_name: 'Patricia', last_name: 'Luna Rivera', doc_number: '42890123', email: 'patricia.luna@salesia.com', phone: '+51 987 555 666', job_title: 'Ejecutiva de Cuenta', commission_rate: 0.045, monthly_sales_target: 12000, is_active: true, hire_date: '2025-01-10' },
+  { id: 1, company_id: 1, first_name: 'Pedro', last_name: 'Torres Castillo', doc_number: '40234567', email: 'pedrotorrescastillo6@gmail.com', phone: '+51 987 111 222', job_title: 'Ejecutivo Comercial Senior', commission_rate: 0.05, monthly_sales_target: 18000, is_active: true, hire_date: '2024-03-15' },
+  { id: 2, company_id: 1, first_name: 'Jhon', last_name: 'Gonzales', doc_number: '45678912', email: 'jhonssj006@gmail.com', phone: '+51 987 333 444', job_title: 'Vendedor de Cuentas Clave', commission_rate: 0.045, monthly_sales_target: 15000, is_active: true, hire_date: '2024-06-01' },
+  { id: 3, company_id: 1, first_name: 'Anderson', last_name: 'Aponte', doc_number: '43210987', email: 'andersonaponte720@gmail.com', phone: '+51 987 555 666', job_title: 'Asesor Comercial Especializado', commission_rate: 0.04, monthly_sales_target: 12000, is_active: true, hire_date: '2025-01-10' },
+  { id: 4, company_id: 1, first_name: 'Víctor', last_name: 'Jesús Obrero', doc_number: '41567890', email: 'victorjesusobrero@gmail.com', phone: '+51 987 777 888', job_title: 'Gerente de Operaciones y Ventas', commission_rate: 0.03, monthly_sales_target: 30000, is_active: true, hire_date: '2023-11-01' },
+  { id: 5, company_id: 1, first_name: 'Franchesco', last_name: 'Alexander', doc_number: '44556677', email: 'franchescoalexanderj@gmail.com', phone: '+51 987 999 000', job_title: 'Director & Administrador General', commission_rate: 0.06, monthly_sales_target: 25000, is_active: true, hire_date: '2023-01-15' },
+  { id: 6, company_id: 1, first_name: 'Frann', last_name: 'Juarez', doc_number: '47890123', email: 'frannjuarez6@gmail.com', phone: '+51 987 222 333', job_title: 'Analista de Modelos & Datos', commission_rate: 0.02, monthly_sales_target: 10000, is_active: true, hire_date: '2025-02-01' },
 ];
 
 export const mockEmployeePerformance: Record<number, EmployeePerformance> = {
-  1: { ...mockEmployees[0], total_sales_count: 24, total_sales_amount: 32450.00, total_commission_earned: 1622.50, target_fulfillment_pct: 216.33 },
-  2: { ...mockEmployees[1], total_sales_count: 15, total_sales_amount: 14200.00, total_commission_earned: 568.00, target_fulfillment_pct: 142.00 },
-  3: { ...mockEmployees[2], total_sales_count: 18, total_sales_amount: 19870.00, total_commission_earned: 894.15, target_fulfillment_pct: 165.58 },
+  1: { ...mockEmployees[0], total_sales_count: 24, total_sales_amount: 32450.00, total_commission_earned: 1622.50, target_fulfillment_pct: 180.28 },
+  2: { ...mockEmployees[1], total_sales_count: 19, total_sales_amount: 21300.00, total_commission_earned: 958.50, target_fulfillment_pct: 142.00 },
+  3: { ...mockEmployees[2], total_sales_count: 14, total_sales_amount: 14200.00, total_commission_earned: 568.00, target_fulfillment_pct: 118.33 },
+  4: { ...mockEmployees[3], total_sales_count: 31, total_sales_amount: 45800.00, total_commission_earned: 1374.00, target_fulfillment_pct: 152.67 },
+  5: { ...mockEmployees[4], total_sales_count: 28, total_sales_amount: 38900.00, total_commission_earned: 2334.00, target_fulfillment_pct: 155.60 },
+  6: { ...mockEmployees[5], total_sales_count: 12, total_sales_amount: 11500.00, total_commission_earned: 230.00, target_fulfillment_pct: 115.00 },
 };
+
 
 // ============================================================================
 // MÉTODOS DE PAGO
@@ -202,7 +209,7 @@ export const mockPaymentMethods: PaymentMethod[] = [
 export const mockOrders: Order[] = [
   {
     id: 1, order_code: 'PED-2026-001', customer_id: 1, customer_name: 'Tech Solutions Corp. S.A.C.',
-    salesperson_id: 1, salesperson_name: 'Ana Torres', status: 'CONFIRMED',
+    salesperson_id: 1, salesperson_name: 'Pedro Torres Castillo', status: 'CONFIRMED',
     subtotal: 2599.98, tax_amount: 467.99, discount_amount: 0, total_amount: 3067.97,
     notes: 'Pedido para renovación de equipos', created_at: '2026-10-05T10:00:00Z',
     items: [
@@ -211,7 +218,7 @@ export const mockOrders: Order[] = [
   },
   {
     id: 2, order_code: 'PED-2026-002', customer_id: 3, customer_name: 'Distribuidora Global E.I.R.L.',
-    salesperson_id: 2, salesperson_name: 'Roberto Vargas', status: 'PENDING',
+    salesperson_id: 2, salesperson_name: 'Jhon Gonzales', status: 'PENDING',
     subtotal: 749.97, tax_amount: 134.99, discount_amount: 0, total_amount: 884.96,
     notes: 'Pedido periféricos para nuevos empleados', created_at: '2026-10-12T09:00:00Z',
     items: [
@@ -221,7 +228,7 @@ export const mockOrders: Order[] = [
   },
   {
     id: 3, order_code: 'PED-2026-003', customer_id: 5, customer_name: 'Innovación Digital S.A.',
-    salesperson_id: 3, salesperson_name: 'Patricia Luna', status: 'DRAFT',
+    salesperson_id: 3, salesperson_name: 'Anderson Aponte', status: 'DRAFT',
     subtotal: 1320.00, tax_amount: 237.60, discount_amount: 0, total_amount: 1557.60,
     notes: 'Cotización de licencias M365', created_at: '2026-10-17T14:00:00Z',
     items: [
@@ -236,7 +243,7 @@ export const mockOrders: Order[] = [
 export const mockSales: Sale[] = [
   {
     id: 1, sale_code: 'VTA-2026-001', customer_id: 1, customer_name: 'Tech Solutions Corp. S.A.C.',
-    salesperson_id: 1, salesperson_name: 'Ana Torres', status: 'CONFIRMED', payment_status: 'PAID',
+    salesperson_id: 1, salesperson_name: 'Pedro Torres Castillo', status: 'CONFIRMED', payment_status: 'PAID',
     subtotal: 5199.96, tax_amount: 935.99, discount_amount: 0, total_amount: 6135.95,
     paid_amount: 6135.95, pending_balance: 0, notes: 'Venta de 4 laptops', created_at: '2026-09-15T10:00:00Z',
     items: [
@@ -245,7 +252,7 @@ export const mockSales: Sale[] = [
   },
   {
     id: 2, sale_code: 'VTA-2026-002', customer_id: 5, customer_name: 'Innovación Digital S.A.',
-    salesperson_id: 3, salesperson_name: 'Patricia Luna', status: 'CONFIRMED', payment_status: 'PAID',
+    salesperson_id: 3, salesperson_name: 'Anderson Aponte', status: 'CONFIRMED', payment_status: 'PAID',
     subtotal: 8249.85, tax_amount: 1484.97, discount_amount: 0, total_amount: 9734.82,
     paid_amount: 9734.82, pending_balance: 0, notes: 'Compra masiva equipamiento', created_at: '2026-09-22T14:00:00Z',
     items: [
@@ -254,7 +261,7 @@ export const mockSales: Sale[] = [
   },
   {
     id: 3, sale_code: 'VTA-2026-003', customer_id: 3, customer_name: 'Distribuidora Global E.I.R.L.',
-    salesperson_id: 2, salesperson_name: 'Roberto Vargas', status: 'CONFIRMED', payment_status: 'PARTIAL',
+    salesperson_id: 2, salesperson_name: 'Jhon Gonzales', status: 'CONFIRMED', payment_status: 'PARTIAL',
     subtotal: 13200.00, tax_amount: 2376.00, discount_amount: 0, total_amount: 15576.00,
     paid_amount: 10000.00, pending_balance: 5576.00, notes: 'Lote de licencias corporativas', created_at: '2026-10-01T10:00:00Z',
     items: [
@@ -263,7 +270,7 @@ export const mockSales: Sale[] = [
   },
   {
     id: 4, sale_code: 'VTA-2026-004', customer_id: 2, customer_name: 'María Elena Gutiérrez Sánchez',
-    salesperson_id: 1, salesperson_name: 'Ana Torres', status: 'CONFIRMED', payment_status: 'PAID',
+    salesperson_id: 1, salesperson_name: 'Pedro Torres Castillo', status: 'CONFIRMED', payment_status: 'PAID',
     subtotal: 1599.97, tax_amount: 288.00, discount_amount: 0, total_amount: 1887.97,
     paid_amount: 1887.97, pending_balance: 0, created_at: '2026-10-08T11:00:00Z',
     items: [
@@ -273,7 +280,7 @@ export const mockSales: Sale[] = [
   },
   {
     id: 5, sale_code: 'VTA-2026-005', customer_id: 4, customer_name: 'Carlos Alberto Mendoza Ríos',
-    salesperson_id: 2, salesperson_name: 'Roberto Vargas', status: 'CONFIRMED', payment_status: 'PENDING',
+    salesperson_id: 2, salesperson_name: 'Jhon Gonzales', status: 'CONFIRMED', payment_status: 'PENDING',
     subtotal: 1299.99, tax_amount: 234.00, discount_amount: 0, total_amount: 1533.99,
     paid_amount: 0, pending_balance: 1533.99, created_at: '2026-10-14T09:00:00Z',
     items: [
@@ -286,11 +293,11 @@ export const mockSales: Sale[] = [
 // PAGOS
 // ============================================================================
 export const mockPayments: Payment[] = [
-  { id: 1, sale_id: 1, sale_code: 'VTA-2026-001', payment_method_name: 'Transferencia Bancaria', amount: 6135.95, reference: 'TRF-BCP-20261001', received_by_name: 'Ana Torres', payment_date: '2026-09-15T10:30:00Z', notes: 'Pago completo por transferencia' },
-  { id: 2, sale_id: 2, sale_code: 'VTA-2026-002', payment_method_name: 'Transferencia Bancaria', amount: 9734.82, reference: 'TRF-BBVA-20261005', received_by_name: 'Patricia Luna', payment_date: '2026-09-23T09:00:00Z', notes: 'Pago total' },
-  { id: 3, sale_id: 3, sale_code: 'VTA-2026-003', payment_method_name: 'Efectivo', amount: 5000.00, received_by_name: 'Roberto Vargas', payment_date: '2026-10-01T11:00:00Z', notes: 'Primer abono en efectivo' },
-  { id: 4, sale_id: 3, sale_code: 'VTA-2026-003', payment_method_name: 'Tarjeta de Crédito', amount: 5000.00, reference: 'VISA-****4523', received_by_name: 'Roberto Vargas', payment_date: '2026-10-08T14:00:00Z', notes: 'Segundo abono con tarjeta' },
-  { id: 5, sale_id: 4, sale_code: 'VTA-2026-004', payment_method_name: 'Yape / Plin', amount: 1887.97, reference: 'YAPE-20261008', received_by_name: 'Ana Torres', payment_date: '2026-10-08T11:30:00Z', notes: 'Pago inmediato por Yape' },
+  { id: 1, sale_id: 1, sale_code: 'VTA-2026-001', payment_method_name: 'Transferencia Bancaria', amount: 6135.95, reference: 'TRF-BCP-20261001', received_by_name: 'Pedro Torres Castillo', payment_date: '2026-09-15T10:30:00Z', notes: 'Pago completo por transferencia' },
+  { id: 2, sale_id: 2, sale_code: 'VTA-2026-002', payment_method_name: 'Transferencia Bancaria', amount: 9734.82, reference: 'TRF-BBVA-20261005', received_by_name: 'Anderson Aponte', payment_date: '2026-09-23T09:00:00Z', notes: 'Pago total' },
+  { id: 3, sale_id: 3, sale_code: 'VTA-2026-003', payment_method_name: 'Efectivo', amount: 5000.00, received_by_name: 'Jhon Gonzales', payment_date: '2026-10-01T11:00:00Z', notes: 'Primer abono en efectivo' },
+  { id: 4, sale_id: 3, sale_code: 'VTA-2026-003', payment_method_name: 'Tarjeta de Crédito', amount: 5000.00, reference: 'VISA-****4523', received_by_name: 'Jhon Gonzales', payment_date: '2026-10-08T14:00:00Z', notes: 'Segundo abono con tarjeta' },
+  { id: 5, sale_id: 4, sale_code: 'VTA-2026-004', payment_method_name: 'Yape / Plin', amount: 1887.97, reference: 'YAPE-20261008', received_by_name: 'Pedro Torres Castillo', payment_date: '2026-10-08T11:30:00Z', notes: 'Pago inmediato por Yape' },
 ];
 
 // ============================================================================

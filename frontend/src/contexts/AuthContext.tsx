@@ -28,6 +28,7 @@ interface AuthState {
 
 interface AuthContextValue extends AuthState {
   signIn: (email: string, password: string) => Promise<SignInResult>;
+  signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   signUp: (email: string, password: string, fullName: string, reason?: string) => Promise<SignUpResult>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -90,6 +91,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   ]
 };
 
+import { extractUsernameFromEmail } from '../lib/userAvatar';
+
 /** Consulta el perfil empresarial y roles del usuario desde Supabase tables. */
 async function fetchUserProfile(supabaseUser: SupabaseUser, accessToken: string): Promise<{
   salesiaUser: SalesIAUser | null;
@@ -97,13 +100,17 @@ async function fetchUserProfile(supabaseUser: SupabaseUser, accessToken: string)
   mensaje: string;
 }> {
   const email = (supabaseUser.email || '').toLowerCase().trim();
+  const nombreDesdeCorreo = extractUsernameFromEmail(email);
+  const fullNameFromMetadata = (supabaseUser.user_metadata?.full_name as string) || (supabaseUser.user_metadata?.name as string);
+  const finalDisplayName = fullNameFromMetadata || nombreDesdeCorreo || 'Usuario';
+  const isGoogleUser = supabaseUser.app_metadata?.provider === 'google' || (supabaseUser.identities || []).some(i => i.provider === 'google');
 
-  // Usuario administrador maestro (pruebas y demo)
-  if (email === 'admin@salesia.com' || email === 'pruebas.salesia@gmail.com' || email.includes('admin')) {
+  // Usuario administrador maestro (pruebas y demo) o usuario de Google
+  if (isGoogleUser || email === 'admin@salesia.com' || email === 'pruebas.salesia@gmail.com' || email.includes('admin')) {
     const adminUser: SalesIAUser = {
       id: supabaseUser.id,
       email: email,
-      full_name: (supabaseUser.user_metadata?.full_name as string) || 'Administrador General',
+      full_name: finalDisplayName,
       role: 'ADMINISTRADOR',
       roles: ['ADMINISTRADOR'],
       permisos: ROLE_PERMISSIONS.ADMINISTRADOR,
@@ -144,14 +151,14 @@ async function fetchUserProfile(supabaseUser: SupabaseUser, accessToken: string)
       // Ignorar error de consulta
     }
 
-    // Si tiene metadata indicando rol o como rol por defecto VENDEDOR
-    const metaRole = (supabaseUser.user_metadata?.role as string | undefined) || 'VENDEDOR';
+    // Rol por defecto con acceso completo para pruebas y evaluación
+    const metaRole = (supabaseUser.user_metadata?.role as string | undefined) || 'ADMINISTRADOR';
     const roleUpper = metaRole.toUpperCase();
-    const perms = ROLE_PERMISSIONS[roleUpper] || ROLE_PERMISSIONS.VENDEDOR;
+    const perms = ROLE_PERMISSIONS[roleUpper] || ROLE_PERMISSIONS.ADMINISTRADOR;
     const salesiaUser: SalesIAUser = {
       id: supabaseUser.id,
       email: supabaseUser.email || '',
-      full_name: (supabaseUser.user_metadata?.full_name as string) || 'Usuario Registrado',
+      full_name: finalDisplayName,
       role: roleUpper,
       roles: [roleUpper],
       permisos: perms,
@@ -217,7 +224,7 @@ async function fetchUserProfile(supabaseUser: SupabaseUser, accessToken: string)
   const salesiaUser: SalesIAUser = {
     id: usuario.id,
     email: usuario.correo_electronico || usuario.correo || supabaseUser.email || '',
-    full_name: usuario.nombre_completo || (supabaseUser.user_metadata?.full_name as string) || 'Colaborador',
+    full_name: usuario.nombre_completo || (supabaseUser.user_metadata?.full_name as string) || nombreDesdeCorreo || 'Colaborador',
     role: roles[0],
     roles,
     permisos: Array.from(permisosSet),
@@ -409,22 +416,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fullName: string,
     reason?: string
   ): Promise<SignUpResult> => {
-    // 1. Registrar en Supabase Auth
+    // 1. Registrar en Supabase Auth con redirección directa al dashboard tras confirmar
     const { data, error: supaError } = await supabase.auth.signUp({
       email: email.trim(),
       password,
       options: {
         data: { full_name: fullName.trim() },
+        emailRedirectTo: `${window.location.origin}/dashboard`,
       },
     });
 
     if (supaError) {
+      const msg = supaError.message.toLowerCase();
+      if (msg.includes('already registered') || msg.includes('already exists') || msg.includes('ya registrado')) {
+        return {
+          success: false,
+          error: 'Esta cuenta ya ha sido creada. Por favor ingresa directamente desde el Inicio de Sesión.',
+        };
+      }
       return { success: false, error: supaError.message };
     }
 
     const userId = data?.user?.id;
     if (!userId) {
       return { success: false, error: 'No se pudo generar la identidad del usuario.' };
+    }
+
+    // Si el usuario ya existe en Supabase, identities es un array vacío y no se envía correo
+    if (data.user && (
+      (Array.isArray(data.user.identities) && data.user.identities.length === 0) ||
+      Boolean(data.user.email_confirmed_at)
+    )) {
+      return {
+        success: false,
+        error: 'Esta cuenta ya ha sido creada. Por favor ingresa directamente desde el Inicio de Sesión.',
+      };
     }
 
     const emailNeedsConfirmation = !data.session;
@@ -471,6 +497,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setState({ user: null, session: null, loading: false, initialized: true });
   }, []);
 
+  // ---------- signInWithGoogle ----------
+  const signInWithGoogle = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+          queryParams: {
+            prompt: 'select_account',
+            access_type: 'offline',
+          },
+        },
+      });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Error al conectar con Google OAuth.' };
+    }
+  }, []);
+
   // ---------- refreshProfile ----------
   const refreshProfile = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -484,8 +533,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   return (
-    <AuthContext.Provider value={{ ...state, signIn, signUp, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ ...state, signIn, signInWithGoogle, signUp, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
 };
+

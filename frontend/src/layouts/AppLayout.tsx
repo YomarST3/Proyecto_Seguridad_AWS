@@ -18,10 +18,12 @@ import {
   Bell,
   Building2,
   Menu,
-  X
+  X,
+  MessageSquare
 } from 'lucide-react';
 
 import { useAuth } from '../contexts/AuthContext';
+import { UserAvatar, extractUsernameFromEmail } from '../lib/userAvatar';
 
 export const AppLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -55,7 +57,7 @@ export const AppLayout: React.FC = () => {
     };
   }, [mobileMenuOpen]);
 
-  const user = authUser || (localStorage.getItem('salesia_user') ? JSON.parse(localStorage.getItem('salesia_user')!) : {
+  const rawUser = authUser || (localStorage.getItem('salesia_user') ? JSON.parse(localStorage.getItem('salesia_user')!) : {
     full_name: 'Administrador General',
     role: 'ADMINISTRADOR',
     roles: ['ADMINISTRADOR'],
@@ -63,9 +65,19 @@ export const AppLayout: React.FC = () => {
     email: 'admin@salesia.com'
   });
 
+  const displayName = rawUser.full_name && !['Colaborador', 'Usuario Registrado'].includes(rawUser.full_name)
+    ? rawUser.full_name
+    : extractUsernameFromEmail(rawUser.email);
+
+  const user = {
+    ...rawUser,
+    full_name: displayName,
+  };
+
   const userPermisos: string[] = user.permisos || [];
   const userRoles: string[] = user.roles || (user.role ? [user.role] : []);
   const esAdmin = userRoles.some((r: string) => r.toUpperCase().includes('ADMIN')) || userPermisos.includes('empresas:configurar');
+  const hasAnyRole = userRoles.length > 0 && !userRoles.some((r: string) => r.toUpperCase() === 'SIN_ROLES' || r.toUpperCase() === 'SOLICITUD_PENDIENTE');
 
   const tienePermiso = (codigo?: string) => {
     if (!codigo || esAdmin) return true;
@@ -82,6 +94,7 @@ export const AppLayout: React.FC = () => {
     path: string;
     icon: React.ComponentType<{ className?: string }>;
     permiso?: string;
+    requireRole?: boolean;
   }
 
   interface NavGroup {
@@ -94,6 +107,12 @@ export const AppLayout: React.FC = () => {
       group: 'PRINCIPAL',
       items: [
         { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard }
+      ]
+    },
+    {
+      group: 'COMUNICACIÓN',
+      items: [
+        { label: 'Chat Empresarial', path: '/chat', icon: MessageSquare, requireRole: true }
       ]
     },
     {
@@ -133,7 +152,10 @@ export const AppLayout: React.FC = () => {
   const navGroups = allNavGroups
     .map(group => ({
       ...group,
-      items: group.items.filter(item => tienePermiso(item.permiso))
+      items: group.items.filter(item => {
+        if (item.requireRole && !hasAnyRole) return false;
+        return tienePermiso(item.permiso);
+      })
     }))
     .filter(group => group.items.length > 0);
 
@@ -219,12 +241,10 @@ export const AppLayout: React.FC = () => {
         {/* User Card in Mobile Drawer Footer */}
         <div className="p-3 border-t border-slate-800 bg-slate-950/50 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5 overflow-hidden min-w-0">
-            <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-sky-400 shrink-0">
-              {user.full_name?.charAt(0) || 'U'}
-            </div>
+            <UserAvatar nameOrEmail={user.full_name || user.email} size="sm" />
             <div className="overflow-hidden min-w-0">
-              <p className="text-xs font-medium text-slate-200 truncate">{user.full_name}</p>
-              <p className="text-[10px] text-sky-400 font-medium truncate">
+              <p className="text-xs font-semibold text-slate-100 truncate">{user.full_name}</p>
+              <p className="text-[10px] text-cyan-400 font-medium truncate">
                 {user.roles && user.roles.length > 0 ? user.roles.join(' • ') : user.role}
               </p>
             </div>
@@ -293,12 +313,10 @@ export const AppLayout: React.FC = () => {
         {/* User Card in Footer */}
         <div className="p-3 border-t border-slate-800 bg-slate-950/40 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-sky-400">
-              {user.full_name?.charAt(0) || 'U'}
-            </div>
+            <UserAvatar nameOrEmail={user.full_name || user.email} size="sm" />
             <div className="overflow-hidden">
-              <p className="text-xs font-medium text-slate-200 truncate">{user.full_name}</p>
-              <p className="text-[10px] text-sky-400 font-medium truncate">
+              <p className="text-xs font-semibold text-slate-100 truncate">{user.full_name}</p>
+              <p className="text-[10px] text-cyan-400 font-medium truncate">
                 {user.roles && user.roles.length > 0 ? user.roles.join(' • ') : user.role}
               </p>
             </div>
@@ -344,6 +362,16 @@ export const AppLayout: React.FC = () => {
               <span className="hidden sm:inline">Base de datos Supabase Activa</span>
               <span className="sm:hidden font-medium">DB Activa</span>
             </div>
+
+            {/* Logo de usuario e inicial en la cabecera */}
+            <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
+              <UserAvatar nameOrEmail={user.full_name || user.email} size="xs" />
+              <div className="hidden md:flex flex-col text-left">
+                <span className="text-xs font-bold text-slate-800 leading-tight">{user.full_name}</span>
+                <span className="text-[10px] text-slate-400 leading-none">{user.email}</span>
+              </div>
+            </div>
+
             <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 border border-slate-200">
               <Bell className="w-4 h-4" />
             </div>

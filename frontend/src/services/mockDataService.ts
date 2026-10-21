@@ -446,66 +446,91 @@ export interface MockSolicitud {
 
 let _adminUsers: MockAdminUser[] = [
   {
-    id: 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d',
+    id: 'b5f3c327-2f81-4de8-9f0e-28cd713dd4f6',
     empresa_id: 1,
-    nombre_completo: 'Administrador General',
-    correo_electronico: 'admin@salesia.com',
-    telefono: '+51 987 654 321',
+    nombre_completo: 'Franchesco Alexander',
+    correo_electronico: 'franchescoalexanderj@gmail.com',
+    telefono: '+51 987 999 000',
     activo: true,
-    ultimo_acceso: '2026-10-18T20:30:00Z',
+    ultimo_acceso: '2026-10-20T22:30:00Z',
     creado_en: '2026-01-01T00:00:00Z',
-    actualizado_en: '2026-10-18T20:30:00Z',
+    actualizado_en: '2026-10-20T22:30:00Z',
     roles: ['ADMINISTRADOR']
   },
   {
-    id: 'b2c3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e',
+    id: '937bb65b-308b-4d12-94ae-c09fe9057ee3',
     empresa_id: 1,
-    nombre_completo: 'Carlos Mendoza',
-    correo_electronico: 'cmendoza@salesia.com',
-    telefono: '+51 988 112 233',
+    nombre_completo: 'Pedro Torres Castillo',
+    correo_electronico: 'pedrotorrescastillo6@gmail.com',
+    telefono: '+51 987 111 222',
     activo: true,
-    ultimo_acceso: '2026-10-18T18:15:00Z',
+    ultimo_acceso: '2026-10-20T20:15:00Z',
     creado_en: '2026-02-15T00:00:00Z',
-    actualizado_en: '2026-10-18T18:15:00Z',
-    roles: ['GERENTE']
-  },
-  {
-    id: 'c3d4e5f6-a7b8-9c0d-1e2f-3a4b5c6d7e8f',
-    empresa_id: 1,
-    nombre_completo: 'Ana Torres Valdivia',
-    correo_electronico: 'atorres@salesia.com',
-    telefono: '+51 999 445 566',
-    activo: true,
-    ultimo_acceso: '2026-10-18T19:00:00Z',
-    creado_en: '2026-03-01T00:00:00Z',
-    actualizado_en: '2026-10-18T19:00:00Z',
+    actualizado_en: '2026-10-20T20:15:00Z',
     roles: ['VENDEDOR']
   },
   {
-    id: 'd4e5f6a7-b89c-0d1e-2f3a-4b5c6d7e8f9a',
+    id: '684a3422-9b38-4653-a6ad-2e4c4a7ed2de',
     empresa_id: 1,
-    nombre_completo: 'Roberto Gómez',
-    correo_electronico: 'rgomez@salesia.com',
-    telefono: '+51 944 778 899',
+    nombre_completo: 'Jhon Gonzales',
+    correo_electronico: 'jhonssj006@gmail.com',
+    telefono: '+51 987 333 444',
     activo: true,
-    ultimo_acceso: '2026-10-17T16:00:00Z',
-    creado_en: '2026-03-10T00:00:00Z',
-    actualizado_en: '2026-10-17T16:00:00Z',
-    roles: ['ALMACEN']
+    ultimo_acceso: '2026-10-20T19:00:00Z',
+    creado_en: '2026-03-01T00:00:00Z',
+    actualizado_en: '2026-10-20T19:00:00Z',
+    roles: ['VENDEDOR']
   },
   {
-    id: 'e5f6a7b8-9c0d-1e2f-3a4b-5c6d7e8f9a0b',
+    id: '79ad3ad9-05b2-453a-83c2-5714e085751e',
     empresa_id: 1,
-    nombre_completo: 'Lucía Morales',
-    correo_electronico: 'lmorales@salesia.com',
-    telefono: '+51 955 889 900',
+    nombre_completo: 'Anderson Aponte',
+    correo_electronico: 'andersonaponte720@gmail.com',
+    telefono: '+51 987 555 666',
     activo: true,
-    ultimo_acceso: '2026-10-18T17:40:00Z',
-    creado_en: '2026-04-01T00:00:00Z',
-    actualizado_en: '2026-10-18T17:40:00Z',
+    ultimo_acceso: '2026-10-20T18:40:00Z',
+    creado_en: '2026-03-10T00:00:00Z',
+    actualizado_en: '2026-10-20T18:40:00Z',
+    roles: ['VENDEDOR']
+  },
+  {
+    id: 'c92df1ca-e5c7-4c75-8ede-d82559e8fcaf',
+    empresa_id: 1,
+    nombre_completo: 'Víctor Jesús Obrero',
+    correo_electronico: 'victorjesusobrero@gmail.com',
+    telefono: '+51 987 777 888',
+    activo: true,
+    ultimo_acceso: '2026-10-20T17:15:00Z',
+    creado_en: '2026-02-01T00:00:00Z',
+    actualizado_en: '2026-10-20T17:15:00Z',
+    roles: ['GERENTE']
+  },
+  {
+    id: '7a3099cb-a1dc-4c04-b8f5-f22cebda916c',
+    empresa_id: 1,
+    nombre_completo: 'Frann Juarez',
+    correo_electronico: 'frannjuarez6@gmail.com',
+    telefono: '+51 987 222 333',
+    activo: true,
+    ultimo_acceso: '2026-10-20T16:20:00Z',
+    creado_en: '2026-03-15T00:00:00Z',
+    actualizado_en: '2026-10-20T16:20:00Z',
     roles: ['ANALISTA']
+  },
+  {
+    id: '12e672c8-6597-4cc7-ae8e-8d57459f0831',
+    empresa_id: 1,
+    nombre_completo: 'Equipo Almacén Central',
+    correo_electronico: 'pruebas.salesia@gmail.com',
+    telefono: '+51 987 000 111',
+    activo: true,
+    ultimo_acceso: '2026-10-20T15:00:00Z',
+    creado_en: '2026-03-20T00:00:00Z',
+    actualizado_en: '2026-10-20T15:00:00Z',
+    roles: ['ALMACEN']
   }
 ];
+
 
 let _solicitudes: MockSolicitud[] = [
   {
@@ -634,6 +659,40 @@ export async function assignUserRoles(userId: string, rolesIds: number[]): Promi
   usr.actualizado_en = new Date().toISOString();
   return { mensaje: 'Roles actualizados correctamente.' };
 }
+
+export async function updateUserPassword(userId: string, newPassword: string): Promise<any> {
+  await delay(200);
+  const usr = _adminUsers.find(u => u.id === userId);
+  if (!usr) throw new Error('Usuario no encontrado');
+
+  usr.actualizado_en = new Date().toISOString();
+  return { mensaje: `Contraseña de seguridad actualizada correctamente para ${usr.correo_electronico}.` };
+}
+
+export async function createAdminUser(data: {
+  nombre_completo: string;
+  correo_electronico: string;
+  telefono?: string;
+  roles: string[];
+  password?: string;
+}): Promise<MockAdminUser> {
+  await delay(250);
+  const newUser: MockAdminUser = {
+    id: `usr-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    empresa_id: 1,
+    nombre_completo: data.nombre_completo,
+    correo_electronico: data.correo_electronico,
+    telefono: data.telefono || '+51 987 654 321',
+    activo: true,
+    ultimo_acceso: undefined,
+    creado_en: new Date().toISOString(),
+    actualizado_en: new Date().toISOString(),
+    roles: data.roles && data.roles.length > 0 ? data.roles : ['VENDEDOR']
+  };
+  _adminUsers = [newUser, ..._adminUsers];
+  return newUser;
+}
+
 
 export async function getInsights(): Promise<Insight[]> {
   await delay();
